@@ -6,6 +6,18 @@ author: menearmenear
 
 commands:
   garbage:
-    description: Garbage plugin commands
-    usage: /<command> <reload>
+    description: Garbage plugin admin commands
+    usage: /<command> <subcommand>
     permission: garbage.admin
+  garbageitem:
+    description: Get your garbage collector item
+    usage: /<command>
+  sell:
+    description: Open the sell GUI
+    usage: /<command>
+  shop:
+    description: Open the upgrade shop
+    usage: /<command>
+  collection:
+    description: Open your garbage collection
+    usage: /<command>
