@@ -41,6 +41,26 @@ public class ItemCommands implements CommandExecutor {
             plugin.getCollectionGui().open(p, "garbage");
             return true;
         }
+        if ("recycle".equals(cmd)) {
+            plugin.getRecycleGui().open(p);
+            return true;
+        }
+        if ("zone".equals(cmd)) {
+            plugin.getZoneGui().open(p);
+            return true;
+        }
+        if ("missions".equals(cmd)) {
+            plugin.getMissionGui().open(p);
+            return true;
+        }
+        if ("achievements".equals(cmd)) {
+            plugin.getAchievementGui().open(p);
+            return true;
+        }
+        if ("leaderboard".equals(cmd)) {
+            plugin.getLeaderboardGui().open(p);
+            return true;
+        }
         return false;
     }
 }

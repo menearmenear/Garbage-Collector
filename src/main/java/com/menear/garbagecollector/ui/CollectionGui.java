@@ -2,6 +2,8 @@ package com.menear.garbagecollector.ui;
 
 import com.menear.garbagecollector.GarbageCollectorPlugin;
 import com.menear.garbagecollector.PlayerData;
+import com.menear.garbagecollector.Sfx;
+import com.menear.garbagecollector.Stats;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -40,10 +42,11 @@ public class CollectionGui {
 
         fillBorder(inv, Material.GRAY_STAINED_GLASS_PANE);
         setTabButtons(inv, tab);
+        inv.setItem(4, headerItem(data));
         placeItems(inv, data, tab);
 
         p.openInventory(inv);
-        p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, 0.6f, 1.2f);
+        Sfx.play(plugin, p, "guiOpen", Sound.BLOCK_CHEST_OPEN, 0.6f, 1.2f);
     }
 
     private void fillBorder(Inventory inv, Material mat) {
@@ -119,32 +122,94 @@ public class CollectionGui {
         return result;
     }
 
+    private ItemStack headerItem(PlayerData data) {
+        ItemStack item = new ItemStack(Material.KNOWLEDGE_BOOK);
+        ItemMeta meta = item.getItemMeta();
+        int level = plugin.getLevelService().level(data);
+        int xpInto = plugin.getLevelService().xpIntoLevel(data);
+        int next = plugin.getLevelService().xpNeededForNext(data);
+        meta.setDisplayName(ChatColor.GOLD + "Collector Level " + level);
+        List<String> lore = new ArrayList<>();
+        if (next > 0) {
+            lore.add(ChatColor.GRAY + "XP: " + ChatColor.YELLOW + xpInto + " / " + next);
+        } else {
+            lore.add(ChatColor.GRAY + "Max level reached!");
+        }
+        String zone = Stats.zoneDisplay(plugin, plugin.getZoneService().activeZone(data));
+        lore.add(ChatColor.GRAY + "Collecting in: " + ChatColor.AQUA + zone);
+        lore.add(ChatColor.GRAY + "Bag: " + ChatColor.AQUA + data.totalGarbage() + " / " + Stats.capacity(plugin, data));
+        meta.setLore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+
     private List<ItemStack> mobItems(PlayerData data) {
         List<ItemStack> result = new ArrayList<>();
-        Map<String, Map<Integer, Integer>> mobs = data.getCollectionMobs();
-        List<String> names = new ArrayList<>();
-        if (plugin.getConfig().isConfigurationSection("mob.collectionName")) {
-            names.addAll(plugin.getConfig().getConfigurationSection("mob.collectionName").getKeys(false));
+        Map<String, Integer> byId = data.getMobKillsById();
+        List<String> ids = new ArrayList<>();
+        if (plugin.getConfig().isConfigurationSection("mob.types")) {
+            ids.addAll(plugin.getConfig().getConfigurationSection("mob.types").getKeys(false));
         }
-        // if no config keys, use the collected ones (shows any previously tracked)
-        if (names.isEmpty()) names.addAll(mobs.keySet());
-        for (String name : names) {
-            Material mat = safeMaterial(plugin.getConfig().getString("mob.collectionName." + name + ".material", "IRON_SWORD"), Material.IRON_SWORD);
-            int total = mobs.getOrDefault(name, Map.of()).values().stream().mapToInt(Integer::intValue).sum();
-            ItemStack item = new ItemStack(mat, Math.min(64, Math.max(1, total)));
-            ItemMeta meta = item.getItemMeta();
-            meta.setDisplayName(ChatColor.RED + name + " " + ChatColor.GRAY + "(" + total + ")");
-            List<String> lore = new ArrayList<>();
-            Map<Integer, Integer> tiers = mobs.get(name);
-            if (tiers != null && !tiers.isEmpty()) {
+
+        // legacy display-name collection still falls back gracefully
+        Map<String, Map<Integer, Integer>> mobs = data.getCollectionMobs();
+        if (ids.isEmpty()) {
+            List<String> names = new ArrayList<>();
+            if (plugin.getConfig().isConfigurationSection("mob.collectionName")) {
+                names.addAll(plugin.getConfig().getConfigurationSection("mob.collectionName").getKeys(false));
+            }
+            if (names.isEmpty()) {
+                names.add(ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&',
+                        plugin.getConfig().getString("mob.name", "&cTrash Monster"))));
+            }
+            int maxTier = Math.max(1, plugin.getConfig().getInt("mob.maxTier", 5));
+            for (String name : names) {
+                Material mat = safeMaterial(plugin.getConfig().getString("mob.collectionName." + name + ".material", "IRON_SWORD"), Material.IRON_SWORD);
+                int total = mobs.getOrDefault(name, Map.of()).values().stream().mapToInt(Integer::intValue).sum();
+                ItemStack item = new ItemStack(mat, Math.min(64, Math.max(1, total)));
+                ItemMeta meta = item.getItemMeta();
+                meta.setDisplayName(ChatColor.RED + name + " " + ChatColor.GRAY + "(" + total + ")");
+                List<String> lore = new ArrayList<>();
+                Map<Integer, Integer> tiers = mobs.get(name);
+                if (tiers == null || tiers.isEmpty()) {
+                    tiers = new java.util.HashMap<>();
+                    for (int t = 1; t <= maxTier; t++) tiers.put(t, 0);
+                }
                 tiers.entrySet().stream()
                         .sorted(Comparator.comparingInt(Map.Entry::getKey))
                         .forEach(e -> lore.add(ChatColor.GRAY + "Tier " + romanNumeral(e.getKey())
-                                + ": " + ChatColor.GOLD + e.getValue()));
-            } else {
-                lore.add(ChatColor.GRAY + "Not yet discovered");
+                                + ": " + (e.getValue() > 0 ? ChatColor.GOLD + Integer.toString(e.getValue())
+                                : ChatColor.DARK_GRAY + "not discovered")));
+                lore.add(ChatColor.GRAY + "Total kills: " + ChatColor.GOLD + total);
+                meta.setLore(lore);
+                item.setItemMeta(meta);
+                result.add(item);
             }
-            lore.add(ChatColor.GRAY + "Total kills: " + ChatColor.GOLD + total);
+            return result;
+        }
+
+        for (String id : ids) {
+            String p = "mob.types." + id;
+            String name = ChatColor.translateAlternateColorCodes('&', plugin.getConfig().getString(p + ".name", id));
+            boolean miniBoss = plugin.getConfig().getBoolean(p + ".miniBoss", false);
+            Material mat = safeMaterial(plugin.getConfig().getString(p + ".icon", "IRON_SWORD"), Material.IRON_SWORD);
+            int count = byId.getOrDefault(id, 0);
+            ItemStack item = new ItemStack(mat, Math.min(64, Math.max(1, count)));
+            ItemMeta meta = item.getItemMeta();
+            meta.setDisplayName(ChatColor.RED + name
+                    + (miniBoss ? " " + ChatColor.GOLD + "\u2726" : "")
+                    + ChatColor.GRAY + " (" + count + ")");
+            List<String> lore = new ArrayList<>();
+            lore.add(ChatColor.GRAY + "Slain: " + (count > 0 ? ChatColor.GOLD + Integer.toString(count) : ChatColor.DARK_GRAY + "not yet"));
+            if (miniBoss) lore.add(ChatColor.LIGHT_PURPLE + "Mini-boss - drops a Luck Token when slain");
+            String zoneHint = null;
+            for (String zone : plugin.getZoneService().ids()) {
+                if (plugin.getZoneService().monsters(zone).contains(id)) {
+                    zoneHint = Stats.zoneDisplay(plugin, zone);
+                    break;
+                }
+            }
+            if (zoneHint != null) lore.add(ChatColor.GRAY + "Found in: " + ChatColor.AQUA + zoneHint);
             meta.setLore(lore);
             item.setItemMeta(meta);
             result.add(item);
@@ -183,10 +248,10 @@ public class CollectionGui {
         int slot = event.getSlot();
         String itemName = ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
         if (slot == 0 && itemName.contains("Garbage")) {
-            p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.4f);
+            Sfx.play(plugin, p, "guiClick", Sound.UI_BUTTON_CLICK, 0.5f, 1.4f);
             open(p, "garbage");
         } else if (slot == 8 && itemName.contains("Mobs")) {
-            p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.4f);
+            Sfx.play(plugin, p, "guiClick", Sound.UI_BUTTON_CLICK, 0.5f, 1.4f);
             open(p, "mobs");
         }
     }

@@ -2,16 +2,22 @@ package com.menear.garbagecollector;
 
 import com.menear.garbagecollector.service.GarbageService;
 import com.menear.garbagecollector.service.PlayerService;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataType;
 
 public class PlayerListeners implements Listener {
     private final GarbageCollectorPlugin plugin;
@@ -30,7 +36,29 @@ public class PlayerListeners implements Listener {
         Player p = event.getPlayer();
         ActiveGarbage garbage = garbageService.findGarbage(event.getRightClicked());
         if (garbage == null) return;
-        garbageService.collect(p, garbage);
+        garbageService.interact(p, garbage);
+    }
+
+    // Consumes a right-clicked Luck Token and grants a permanent +1 luck.
+    @EventHandler
+    public void onInteract(PlayerInteractEvent event) {
+        if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        ItemStack item = event.getItem();
+        if (item == null || item.getType() != Material.NAUTILUS_SHELL) return;
+        if (item.getItemMeta() == null
+                || !item.getItemMeta().getPersistentDataContainer()
+                .has(new NamespacedKey(plugin, "luck-token"), PersistentDataType.BYTE)) {
+            return;
+        }
+        event.setCancelled(true);
+        Player p = event.getPlayer();
+        PlayerData data = playerService.getPlayerData(p.getUniqueId());
+        data.addGarbageLuck(1);
+        plugin.getScoreboardManager().updateForPlayer(p, data);
+        plugin.getStatusBarManager().updateForPlayer(p, data);
+        item.setAmount(item.getAmount() - 1);
+        p.sendMessage(ChatColor.LIGHT_PURPLE + "You gain +1 Garbage Luck! (now " + data.getGarbageLuck() + ")");
+        Sfx.play(plugin, p, "token", Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.4f);
     }
 
     @EventHandler
@@ -59,6 +87,8 @@ public class PlayerListeners implements Listener {
     public void onJoin(PlayerJoinEvent event) {
         Player p = event.getPlayer();
         PlayerData data = playerService.getPlayerData(p.getUniqueId());
+        // daily missions refresh each server day
+        plugin.getMissionService().refresh(data);
         // give the collector tool once (first join)
         if (!hasAnyTool(p)) {
             p.getInventory().addItem(CollectorItem.build(plugin, data));

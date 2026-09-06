@@ -41,6 +41,7 @@ public class AdminCommands implements CommandExecutor {
         if ("reload".equals(sub)) {
             if (!hasAdmin(sender)) { sender.sendMessage("No permission"); return true; }
             plugin.reloadConfig();
+            garbageService.reload();
             sender.sendMessage("Garbage config reloaded.");
             return true;
         }
@@ -114,8 +115,10 @@ public class AdminCommands implements CommandExecutor {
             sender.sendMessage("Player: " + target.getName());
             sender.sendMessage("Money: " + data.getMoney() + "  Total earned: " + data.getTotalEarned()
                     + "  Collected: " + data.getCollected());
+            sender.sendMessage("Bag: " + data.totalGarbage() + " items worth $" + data.totalGarbageValue());
             sender.sendMessage("Tier: " + data.getCollectorTier() + "  Luck: " + data.getGarbageLuck()
-                    + "  Speed lvl: " + data.getSpeedLevel());
+                    + "  Speed lvl: " + data.getSpeedLevel() + "  Magnet lvl: " + data.getMagnetLevel());
+            sender.sendMessage("Quick Hands lvl: " + data.getPickupLevel() + "  Cooldown lvl: " + data.getCooldownLevel());
             sender.sendMessage("Garbage counts: " + data.getGarbageCount());
             return true;
         }

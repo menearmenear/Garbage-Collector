@@ -20,8 +20,13 @@ public class CollectorItem {
             lore.add(ChatColor.translateAlternateColorCodes('&', line));
         }
         lore.add("");
+        lore.add(ChatColor.GOLD + "Collector Level " + plugin.getLevelService().level(data));
         lore.add(ChatColor.GRAY + "Tier: " + ChatColor.GOLD + data.getCollectorTier());
-        lore.add(ChatColor.GRAY + "Luck: " + ChatColor.LIGHT_PURPLE + data.getGarbageLuck());
+        lore.add(ChatColor.RED + "Power: " + Stats.power(plugin, data));
+        lore.add(ChatColor.LIGHT_PURPLE + "Luck: " + Stats.luck(plugin, data));
+        lore.add(ChatColor.BLUE + "Efficiency: " + Stats.efficiency(plugin, data));
+        lore.add(ChatColor.DARK_PURPLE + "Magnet: " + Stats.magnet(plugin, data));
+        lore.add(ChatColor.AQUA + "Bag: " + Stats.capacity(plugin, data));
         lore.add(ChatColor.GRAY + "Speed Lvl: " + ChatColor.AQUA + data.getSpeedLevel());
         meta.setLore(lore);
         item.setItemMeta(meta);

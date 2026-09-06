@@ -2,6 +2,7 @@ package com.menear.garbagecollector.ui;
 
 import com.menear.garbagecollector.GarbageCollectorPlugin;
 import com.menear.garbagecollector.PlayerData;
+import com.menear.garbagecollector.Stats;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -19,11 +20,12 @@ public class StatusBarManager {
     }
 
     public String build(PlayerData data) {
-        int cap = plugin.getConfig().getInt("garbage.collector.tier" + data.getCollectorTier() + ".bagCapacity",
-                plugin.getConfig().getInt("garbage.collector.tier1.bagCapacity", 20));
-        return ChatColor.GOLD + "Bag: " + ChatColor.WHITE + data.getCollected() + "/" + cap
+        int cap = Stats.capacity(plugin, data);
+        return ChatColor.GOLD + "Bag: " + ChatColor.WHITE + data.totalGarbage() + "/" + cap
                 + ChatColor.GRAY + "  " + ChatColor.DARK_GRAY + "|" + ChatColor.GRAY + "  "
-                + ChatColor.GREEN + "$" + data.getMoney();
+                + ChatColor.GREEN + "$" + data.getMoney()
+                + ChatColor.GRAY + "  " + ChatColor.DARK_GRAY + "|" + ChatColor.GRAY + "  "
+                + ChatColor.AQUA + Stats.zoneDisplay(plugin, plugin.getZoneService().activeZone(data));
     }
 
     public void startRefresh() {

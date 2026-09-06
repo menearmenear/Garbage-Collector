@@ -2,7 +2,13 @@
 #  Garbage Collector - configuration
 #  Run /garbage reload for most changes.
 #  Interval changes need a server restart.
+#  The plugin auto-merges any missing options into an older
+#  config.yml on startup (your tweaks are kept).
 # ===========================================================
+
+# Version of this config. When the plugin ships a higher version,
+# the missing options are merged in automatically on startup.
+config-version: 3
 
 spawn:
   # Interval in seconds between spawn ticks
@@ -19,12 +25,32 @@ spawn:
   playerRadius: 12
   # Chance (0-100) a spawn is a trash monster mob
   mobChance: 15
+  # Chance (0-100) that a monster spawn is the zone's mini-boss (0.5 = 0.5%)
+  miniBossChance: 0.5
   # Radius for the /garbage spawn spread (blocks)
   burstSpread: 20
+
+collect:
+  # Hold-to-collect: you must keep interacting (right-click/hold) for
+  # this long to pick garbage up. Shown as a progress bar in the action bar.
+  baseHoldMillis: 3000
+  minHoldMillis: 400
+  # Each efficiency point (Efficiency upgrade + legacy Quick Hands/Cooldown
+  # purchases + tool bonus) lowers the required hold time by this much
+  holdReductionPerLevel: 400
+  # Max gap between interactions before the hold progress resets
+  holdMaxGapMillis: 1500
+  # Post-collect cooldown between successful pickups (anti-click-spam)
+  baseCooldownMillis: 2000
+  minCooldownMillis: 300
+  # Each efficiency point lowers the cooldown by this much
+  cooldownReductionPerLevel: 350
 
 garbage:
   # Seconds garbage stays before despawning (0 = never)
   ttlSeconds: 120
+  # Permanent luck gained every time a Mythic piece is collected
+  mythicLuckReward: 1
   # Collector tiers: higher tier = more value & more bag capacity
   # tiers are named "tier1", "tier2", ...
   collector:
@@ -69,22 +95,93 @@ garbage:
       glow: ORANGE
       xp: 20
       valueMultiplier: 25.0
+    # Mythic: super rare. weight 0 = never picked globally; zones add a
+    # weight to opt in. On collect it broadcasts, gives +1 permanent luck
+    # (garbage.mythicLuckReward) and requires collection.
+    mythic:
+      weight: 0
+      color: "#AA00FF"
+      glow: PURPLE
+      xp: 100
+      valueMultiplier: 100.0
+      mythic: true
   types:
     paper:
       material: PAPER
       value: 1
+    newspaper:
+      material: BOOK
+      value: 3
     can:
       material: IRON_NUGGET
       value: 3
     bottle:
       material: GLASS_BOTTLE
       value: 2
+    plastic_bottle:
+      material: GLASS_BOTTLE
+      value: 5
+    plastic_chunk:
+      material: GLASS
+      value: 2
     sock:
       material: LEATHER
       value: 1
-    diamond:
-      material: DIAMOND
-      value: 10
+    scrap:
+      material: IRON_NUGGET
+      value: 4
+    oil_barrel:
+      material: BUCKET
+      value: 12
+    battery:
+      material: REDSTONE
+      value: 50
+      requiresPower: 2
+    electronics:
+      material: REPEATER
+      value: 80
+      requiresPower: 3
+    broken_phone:
+      material: CLOCK
+      value: 250
+      requiresPower: 4
+    old_laptop:
+      material: NETHERITE_SCRAP
+      value: 1200
+      requiresPower: 6
+    toxic_waste:
+      material: SLIME_BALL
+      value: 150
+      requiresPower: 3
+    fishing_junk:
+      material: STRING
+      value: 6
+    e_waste:
+      material: OBSERVER
+      value: 200
+      requiresPower: 4
+    nuclear_waste:
+      material: GREEN_DYE
+      value: 400
+      requiresPower: 6
+    teddy_bear:
+      material: BROWN_WOOL
+      value: 50
+      collectible: true
+    ancient_coin:
+      material: GOLD_NUGGET
+      value: 10000
+    lost_jewelry:
+      material: EMERALD
+      value: 5000
+      requiresPower: 5
+
+collectorLevels:
+  maxLevel: 50
+  # XP needed to reach level N = perLevelBase + (N-1) * perLevelGrowth,
+  # cumulative. Levels unlock zones, upgrades and garbage.
+  perLevelBase: 100
+  perLevelGrowth: 50
 
 luck:
   enabled: true
@@ -97,6 +194,98 @@ luck:
   # Upgrade price per luck point in the shop
   upgradeCostPerPoint: 50
   upgradeMaxPerPurchase: 5
+
+backpacks:
+  # Total bag capacity = collector tier's bagCapacity x capacityMult.
+  # Higher backpacks give much more room.
+  levels:
+    1:
+      displayName: "&7Small Sack"
+      icon: LEATHER_BOOTS
+      capacityMult: 1.0
+      cost: 0
+    2:
+      displayName: "&fGarbage Bag"
+      icon: PAPER
+      capacityMult: 2.0
+      cost: 1500
+    3:
+      displayName: "&8Dumpster Bag"
+      icon: COBBLESTONE
+      capacityMult: 5.0
+      cost: 6000
+    4:
+      displayName: "&6Industrial Container"
+      icon: BARREL
+      capacityMult: 12.0
+      cost: 25000
+    5:
+      displayName: "&cTrash Compactor"
+      icon: IRON_TRAPDOOR
+      capacityMult: 30.0
+      cost: 100000
+
+tools:
+  # Better Grabbers: flat bonuses added to your collector machine.
+  # They can be bought with money + recycled materials (keys of recycling
+  # output materials) or just money.
+  order:
+    - basic
+    - steel
+    - electric
+    - industrial
+    - quantum
+  basic:
+    displayName: "&fBasic Grabber"
+    icon: STICK
+    cost: 0
+    power: 0
+    efficiency: 0
+    luck: 0
+    magnet: 0
+  steel:
+    displayName: "&7Steel Grabber"
+    icon: IRON_INGOT
+    cost: 1500
+    materials:
+      paper: 5
+    power: 0
+    efficiency: 2
+    luck: 0
+    magnet: 0
+  electric:
+    displayName: "&dElectric Grabber"
+    icon: GLOWSTONE_DUST
+    cost: 8000
+    materials:
+      can: 10
+      bottle: 10
+    power: 0
+    efficiency: 1
+    luck: 2
+    magnet: 3
+  industrial:
+    displayName: "&cIndustrial Grabber"
+    icon: ANVIL
+    cost: 25000
+    materials:
+      electronics: 8
+      battery: 10
+    power: 4
+    efficiency: 2
+    luck: 3
+    magnet: 1
+  quantum:
+    displayName: "&bQuantum Grabber"
+    icon: NETHER_STAR
+    cost: 100000
+    materials:
+      nuclear_waste: 4
+      lost_jewelry: 1
+    power: 6
+    efficiency: 4
+    luck: 10
+    magnet: 3
 
 shop:
   # Movement speed upgrade
@@ -115,6 +304,138 @@ shop:
       4:
         walkSpeed: 0.3
         cost: 2000
+  # Power: lets you collect/heavier garbage (types requiring power)
+  power:
+    enabled: true
+    levels:
+      1:
+        cost: 800
+      2:
+        cost: 2000
+      3:
+        cost: 5000
+      4:
+        cost: 15000
+      5:
+        cost: 40000
+      6:
+        cost: 100000
+  # Efficiency: reduces hold-to-collect time and the pickup cooldown
+  efficiency:
+    enabled: true
+    levels:
+      1:
+        cost: 600
+      2:
+        cost: 1500
+      3:
+        cost: 3500
+      4:
+        cost: 8000
+      5:
+        cost: 18000
+  # Magnet: auto-collects the nearest garbage within a radius every
+  # cooldownSeconds while you are online. Higher levels = wider radius
+  # and a much shorter cooldown.
+  magnet:
+    enabled: true
+    levels:
+      1:
+        radius: 3
+        cooldownSeconds: 60
+        cost: 1000
+      2:
+        radius: 4
+        cooldownSeconds: 45
+        cost: 2500
+      3:
+        radius: 5
+        cooldownSeconds: 30
+        cost: 4500
+      4:
+        radius: 7
+        cooldownSeconds: 20
+        cost: 8000
+      5:
+        radius: 9
+        cooldownSeconds: 10
+        cost: 14000
+
+powerups:
+  # Temporary boosts you buy in /shop -> Powerups. Expire after
+  # durationSeconds. Each powerup is applied while active.
+  speed:
+    displayName: "&eSpeed Boost"
+    icon: SUGAR
+    durationSeconds: 60
+    cost: 1000
+    walkSpeedMult: 1.5
+  luck:
+    displayName: "&dLucky Hour"
+    icon: EXPERIENCE_BOTTLE
+    durationSeconds: 60
+    cost: 1500
+    luckBonus: 25
+  magnet:
+    displayName: "&9Mega Magnet"
+    icon: COMPASS
+    durationSeconds: 30
+    cost: 2000
+    radiusMult: 3.0
+  golden:
+    displayName: "&6Golden Trash"
+    icon: GOLD_INGOT
+    durationSeconds: 60
+    cost: 1200
+    valueMult: 2.0
+  freeze:
+    displayName: "&bTrash Freeze"
+    icon: ICE
+    durationSeconds: 30
+    cost: 800
+  infinitebag:
+    displayName: "&dInfinite Bag"
+    icon: ENDER_CHEST
+    durationSeconds: 30
+    cost: 2500
+
+recycling:
+  # /recycle (or /shop -> Recycling) converts bag garbage into recycled
+  # materials. Amount: how many pieces of that garbage = 1 material unit.
+  recipes:
+    paper:
+      material: PAPER
+      amount: 10
+    newspaper:
+      material: PAPER
+      amount: 8
+    plastic_chunk:
+      material: GLASS
+      amount: 8
+    plastic_bottle:
+      material: GLASS
+      amount: 6
+    can:
+      material: IRON_INGOT
+      amount: 6
+    scrap:
+      material: IRON_INGOT
+      amount: 4
+    bottle:
+      material: GLASS
+      amount: 5
+    electronics:
+      material: GOLD_INGOT
+      amount: 4
+    battery:
+      material: REDSTONE
+      amount: 3
+    oil_barrel:
+      material: IRON_INGOT
+      amount: 8
+    fishing_junk:
+      material: STRING
+      amount: 6
 
 sell:
   # Money earned per garbage unit of each base type after rarity multiplier
@@ -138,11 +459,13 @@ tool:
   material: STICK
   name: "&6Trash Grabber"
   lore:
-    - "&7Right-click garbage to collect it"
+    - "&7Click & hold garbage to collect it"
     - "&7Sell your haul with &b/sell"
+    - "&7Recycle junk with &b/recycle"
     - "&7Upgrade this collector with &b/shop"
 
 mob:
+  # Fallback values for the default Trash Zombie if not overridden in mob.types
   name: "&cTrash Monster"
   type: ZOMBIE
   # Highest tier garbage mobs can spawn with (I, II, III, IV, V)
@@ -153,6 +476,8 @@ mob:
   valuePerTier: 1.5
   # Bonus loot table on kill
   luckDropChanceBonusPerPoint: 0.01
+  # Chance a mini-boss drops a Luck Token (+1 permanent garbage luck)
+  miniBossTokenChance: 0.5
   drops:
     bone:
       material: BONE
@@ -162,18 +487,488 @@ mob:
       material: ROTTEN_FLESH
       chance: 0.3
       amount: "1-3"
+  # Named monsters. Each zone lists which of these can spawn there.
+  # Fields: displayName, entityType, scale, speed (multiplier), hpMult,
+  # valueMult, xp, miniBoss (boss bar + bonus), icon (collection menu),
+  # and an optional drops table overriding mob.drops.
+  types:
+    trash_rat:
+      displayName: "&7Trash Rat"
+      entityType: ZOMBIE
+      icon: RABBIT_FOOT
+      scale: 0.7
+      speed: 1.5
+      hpMult: 0.5
+      valueMult: 0.6
+      xp: 5
+      miniBoss: false
+      drops:
+        bone:
+          material: BONE
+          chance: 0.4
+          amount: "1-2"
+    trash_zombie:
+      displayName: "&cTrash Zombie"
+      entityType: ZOMBIE
+      icon: ZOMBIE_HEAD
+      scale: 1.0
+      speed: 1.0
+      hpMult: 1.0
+      valueMult: 1.0
+      xp: 10
+      miniBoss: false
+    toxic_spider:
+      displayName: "&2Toxic Spider"
+      entityType: SPIDER
+      icon: SPIDER_EYE
+      scale: 1.0
+      speed: 1.3
+      hpMult: 1.2
+      valueMult: 1.4
+      xp: 15
+      miniBoss: false
+      drops:
+        rotten:
+          material: ROTTEN_FLESH
+          chance: 0.4
+          amount: "1-3"
+        toxic_waste:
+          material: SLIME_BALL
+          chance: 0.1
+          amount: "1-1"
+    trash_golem:
+      displayName: "&8Trash Golem"
+      entityType: ZOMBIE
+      icon: IRON_BLOCK
+      scale: 1.8
+      speed: 0.5
+      hpMult: 4.0
+      valueMult: 2.2
+      xp: 50
+      miniBoss: false
+    landfill_king:
+      displayName: "&6Landfill King"
+      entityType: ZOMBIE
+      icon: GOLD_BLOCK
+      scale: 2.2
+      speed: 0.7
+      hpMult: 15.0
+      valueMult: 6.0
+      xp: 200
+      miniBoss: true
+      bossBarColor: RED
+      drops:
+        gold_ingot:
+          material: GOLD_INGOT
+          chance: 0.5
+          amount: "8-16"
+        diamond:
+          material: DIAMOND
+          chance: 0.3
+          amount: "1-3"
+
+zones:
+  # Players progress through zones: pay to unlock, then set one active.
+  # Spawning near a player uses their active zone's garbage table, rarity
+  # weights, monsters and effects. config-version auto-adds these keys to
+  # existing servers.
+  neighborhood:
+    displayName: "&2Neighborhood"
+    icon: BIRCH_PLANKS
+    slot: 10
+    cost: 0
+    requiredLevel: 1
+    description:
+      - "&7Free starter zone"
+    types:
+      - paper
+      - newspaper
+      - can
+      - bottle
+      - plastic_bottle
+      - sock
+    rarities: {}
+    monsters:
+      - trash_rat
+      - trash_zombie
+    effects: []
+    danger: false
+  industrial:
+    displayName: "&6Industrial Area"
+    icon: ANVIL
+    slot: 11
+    cost: 5000
+    requiredLevel: 3
+    description:
+      - "&7Scrap, oil barrels and batteries"
+      - "&7More valuable garbage"
+    types:
+      - scrap
+      - oil_barrel
+      - battery
+      - electronics
+      - can
+    rarities:
+      common: 50
+      rare: 25
+      epic: 15
+      legendary: 8
+      mythic: 2
+    monsters:
+      - trash_zombie
+      - toxic_spider
+      - trash_golem
+    effects: []
+    danger: false
+  river:
+    displayName: "&bRiver"
+    icon: WATER_BUCKET
+    slot: 12
+    cost: 25000
+    requiredLevel: 6
+    description:
+      - "&7Plastic and fishing junk"
+    types:
+      - plastic_bottle
+      - plastic_chunk
+      - fishing_junk
+      - bottle
+    rarities:
+      common: 45
+      rare: 30
+      epic: 18
+      legendary: 6
+      mythic: 1
+    monsters:
+      - trash_rat
+      - trash_zombie
+    effects: []
+    danger: false
+  landfill:
+    displayName: "&8Landfill"
+    icon: COBBLESTONE
+    slot: 13
+    cost: 100000
+    requiredLevel: 10
+    description:
+      - "&7Toxic waste and electronics"
+      - "&7Rare garbage, dangerous!"
+    types:
+      - toxic_waste
+      - electronics
+      - scrap
+      - battery
+      - e_waste
+    rarities:
+      common: 40
+      rare: 25
+      epic: 20
+      legendary: 12
+      mythic: 3
+    monsters:
+      - trash_golem
+      - toxic_spider
+      - landfill_king
+    effects:
+      - effect: NAUSEA
+        amplifier: 0
+    danger: true
+  toxic_dump:
+    displayName: "&aToxic Dump"
+    icon: SLIME_BALL
+    slot: 14
+    cost: 500000
+    requiredLevel: 15
+    description:
+      - "&7Nuclear and e-waste"
+      - "&7VERY dangerous"
+    types:
+      - nuclear_waste
+      - e_waste
+      - toxic_waste
+    rarities:
+      common: 20
+      rare: 30
+      epic: 30
+      legendary: 15
+      mythic: 5
+    monsters:
+      - toxic_spider
+      - trash_golem
+    effects:
+      - effect: WITHER
+        amplifier: 0
+      - effect: NAUSEA
+        amplifier: 0
+    danger: true
+  mega_city:
+    displayName: "&dMega City"
+    icon: NETHERITE_INGOT
+    slot: 15
+    cost: 2000000
+    requiredLevel: 20
+    description:
+      - "&7Everything. Best loot."
+    types:
+      - paper
+      - can
+      - bottle
+      - plastic_bottle
+      - scrap
+      - electronics
+      - broken_phone
+      - old_laptop
+      - toxic_waste
+      - nuclear_waste
+      - teddy_bear
+      - ancient_coin
+      - lost_jewelry
+    rarities:
+      common: 30
+      rare: 30
+      epic: 22
+      legendary: 14
+      mythic: 4
+    monsters:
+      - trash_rat
+      - trash_zombie
+      - toxic_spider
+      - trash_golem
+      - landfill_king
+    effects: []
+    danger: false
+
+missions:
+  enabled: true
+  # How many contracts are picked each in-game day
+  dailyCount: 3
+  contracts:
+    collect100:
+      type: collect
+      target: 100
+      rewardMoney: 2500
+    recycler50can:
+      type: recycle
+      targetType: can
+      target: 50
+      rewardMaterials:
+        can: 5
+    monsterhunter:
+      type: kill
+      monster: trash_zombie
+      target: 10
+      rewardMoney: 4000
+    lucky1:
+      type: findRare
+      target: 3
+      rewardLuck: 2
+    recycler50bottle:
+      type: recycle
+      targetType: bottle
+      target: 50
+      rewardMaterials:
+        bottle: 8
+    bigcollector:
+      type: collect
+      target: 500
+      rewardMoney: 10000
+      rewardXp: 500
+
+achievements:
+  first_pickup:
+    name: "&eFirst Pickup"
+    desc: "Collect your first garbage"
+    type: collectTotal
+    target: 1
+  cleaner_1000:
+    name: "&bProfessional Cleaner"
+    desc: "Collect 1,000 garbage"
+    type: collectTotal
+    target: 1000
+    rewardMoney: 5000
+  millionaire:
+    name: "&6Millionaire"
+    desc: "Earn $1,000,000"
+    type: earnTotal
+    target: 1000000
+  trash_hunter:
+    name: "&cTrash Hunter"
+    desc: "Kill 100 Trash Monsters"
+    type: killTotal
+    target: 100
+    rewardLuck: 2
+  lucky_bastard:
+    name: "&dLucky Bastard"
+    desc: "Find a Mythic garbage"
+    type: mythicFound
+    target: 1
+  hoarder_10000:
+    name: "&8Garbage Hoarder"
+    desc: "Collect 10,000 lifetime garbage"
+    type: collectTotal
+    target: 10000
+    rewardMoney: 25000
+  rat_catcher:
+    name: "&7Rat Catcher"
+    desc: "Kill 10 Trash Rats"
+    type: killMonster
+    monster: trash_rat
+    target: 10
+  king_slayer:
+    name: "&6King Slayer"
+    desc: "Slay the Landfill King"
+    type: killMonster
+    monster: landfill_king
+    target: 1
+    rewardLuck: 5
+  teddy_collector:
+    name: "&dTeddy Collector"
+    desc: "Find a Teddy Bear"
+    type: collectType
+    targetType: teddy_bear
+    target: 1
+  mythic_lover:
+    name: "&dMythic Collector"
+    desc: "Find 10 Mythic garbage"
+    type: mythicFound
+    target: 10
+    rewardLuck: 10
+
+events:
+  # Random world events happen every minIntervalMinutes-maxIntervalMinutes.
+  enabled: true
+  minIntervalMinutes: 10
+  maxIntervalMinutes: 30
+  garbage_truck:
+    weight: 40
+    amount: 30
+    durationSeconds: 0
+  toxic_spill:
+    weight: 20
+    durationSeconds: 120
+    # Extra toxic garbage types spawned everywhere during the spill
+    types:
+      - toxic_waste
+      - e_waste
+      - battery
+  golden_trash:
+    weight: 20
+    durationSeconds: 60
+  trash_king:
+    weight: 10
+    durationSeconds: 0
 
 effects:
   particles: true
   sounds: true
+
+sounds:
+  enabled: true
+  events:
+    spawn:
+      sound: BLOCK_ENCHANTMENT_TABLE_USE
+      volume: 0.4
+      pitch: 1.3
+    mobSpawn:
+      sound: ENTITY_ZOMBIE_AMBIENT
+      volume: 0.5
+      pitch: 1.0
+    collect:
+      sound: ENTITY_EXPERIENCE_ORB_PICKUP
+      volume: 0.7
+      pitch: 1.2
+    collectRare:
+      sound: BLOCK_NOTE_BLOCK_CHIME
+      volume: 0.6
+      pitch: 1.6
+    collectFail:
+      sound: BLOCK_NOTE_BLOCK_BASS
+      volume: 0.6
+      pitch: 0.5
+    luckUp:
+      sound: ENTITY_PLAYER_LEVELUP
+      volume: 0.5
+      pitch: 1.6
+    mythic:
+      sound: UI_TOAST_CHALLENGE_COMPLETE
+      volume: 0.9
+      pitch: 1.0
+    mobHurt:
+      sound: ENTITY_ZOMBIE_HURT
+      volume: 0.5
+      pitch: 1.0
+    mobDeath:
+      sound: ENTITY_ZOMBIE_DEATH
+      volume: 0.8
+      pitch: 0.9
+    mobLoot:
+      sound: ENTITY_ITEM_PICKUP
+      volume: 0.4
+      pitch: 1.3
+    magnet:
+      sound: ENTITY_EXPERIENCE_ORB_PICKUP
+      volume: 0.5
+      pitch: 1.4
+    sell:
+      sound: ENTITY_EXPERIENCE_ORB_PICKUP
+      volume: 0.7
+      pitch: 1.0
+    bonusLoot:
+      sound: ENTITY_PLAYER_LEVELUP
+      volume: 0.5
+      pitch: 1.5
+    shop:
+      sound: BLOCK_ANVIL_USE
+      volume: 0.7
+      pitch: 1.0
+    shopFail:
+      sound: BLOCK_NOTE_BLOCK_BASS
+      volume: 0.6
+      pitch: 0.8
+    guiOpen:
+      sound: BLOCK_CHEST_OPEN
+      volume: 0.6
+      pitch: 1.2
+    guiClick:
+      sound: UI_BUTTON_CLICK
+      volume: 0.5
+      pitch: 1.4
+    mission:
+      sound: ENTITY_PLAYER_LEVELUP
+      volume: 0.6
+      pitch: 1.3
+    achievement:
+      sound: UI_TOAST_CHALLENGE_COMPLETE
+      volume: 0.8
+      pitch: 1.1
+    recycle:
+      sound: BLOCK_ANVIL_USE
+      volume: 0.7
+      pitch: 0.8
+    event:
+      sound: ENTITY_WITHER_SPAWN
+      volume: 0.8
+      pitch: 0.8
+    bossBar:
+      sound: ENTITY_WITHER_AMBIENT
+      volume: 0.6
+      pitch: 0.7
+    token:
+      sound: ENTITY_PLAYER_LEVELUP
+      volume: 0.8
+      pitch: 1.4
 
 scoreboard:
   title: "&6Garbage Collector"
   lines:
     - "&7Money: &f$%money%"
     - "&7Collected: &f%collected%"
+    - "&7Bag: &f%bag%/%capacity%"
     - "&7Luck: &f%luck%"
+    - "&7Magnet: &f%magnet%"
     - "&7Tier: &f%tier%"
+    - "&7Level: &f%level%"
+    - "&7Zone: &f%zone%"
 
 admin:
   permission: garbage.admin

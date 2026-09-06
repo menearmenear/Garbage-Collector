@@ -2,6 +2,7 @@ package com.menear.garbagecollector.ui;
 
 import com.menear.garbagecollector.GarbageCollectorPlugin;
 import com.menear.garbagecollector.PlayerData;
+import com.menear.garbagecollector.Sfx;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -39,14 +40,13 @@ public class SellGui {
             if (e.getValue() <= 0) continue;
             String type = e.getKey();
             Material mat = safeMaterial(plugin.getConfig().getString("garbage.types." + type + ".material", "PAPER"), Material.PAPER);
-            int value = plugin.getConfig().getInt("garbage.types." + type + ".value", 1);
             ItemStack item = new ItemStack(mat, Math.min(64, e.getValue()));
             ItemMeta meta = item.getItemMeta();
             meta.setDisplayName(ChatColor.YELLOW + capitalize(type));
             List<String> lore = new ArrayList<>();
             lore.add(ChatColor.GRAY + "You have: " + ChatColor.GOLD + e.getValue());
-            lore.add(ChatColor.GRAY + "Sell value: " + ChatColor.GREEN + "$" + value + " each");
-            lore.add(ChatColor.GRAY + "Click to sell all of this type");
+            lore.add(ChatColor.GRAY + "Bag value: " + ChatColor.GREEN + "$" + data.getGarbageValue(type));
+            lore.add(ChatColor.GRAY + "Click to sell this type");
             meta.setLore(lore);
             item.setItemMeta(meta);
             inv.setItem(slot++, item);
@@ -57,21 +57,17 @@ public class SellGui {
         meta.setDisplayName(ChatColor.GREEN + "Sell ALL");
         List<String> lore = new ArrayList<>();
         lore.add(ChatColor.GRAY + "Sell every garbage type");
-        lore.add(ChatColor.GRAY + "Total value: " + ChatColor.GREEN + "$" + computeTotal(data));
+        lore.add(ChatColor.GRAY + "Total value: " + ChatColor.GREEN + "$" + data.totalGarbageValue());
         meta.setLore(lore);
         sellAll.setItemMeta(meta);
         inv.setItem(26, sellAll);
 
         p.openInventory(inv);
-        p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, 0.6f, 1.2f);
+        Sfx.play(plugin, p, "guiOpen", Sound.BLOCK_CHEST_OPEN, 0.6f, 1.2f);
     }
 
     private int computeTotal(PlayerData data) {
-        int total = 0;
-        for (Map.Entry<String, Integer> e : data.getGarbageCount().entrySet()) {
-            total += e.getValue() * plugin.getConfig().getInt("garbage.types." + e.getKey() + ".value", 1);
-        }
-        return total;
+        return data.totalGarbageValue();
     }
 
     public void onClick(InventoryClickEvent event) {
@@ -92,10 +88,11 @@ public class SellGui {
                 int count = data.totalGarbage();
                 data.clearGarbage();
                 p.sendMessage(ChatColor.GREEN + "Sold all garbage for $" + total + " (" + count + " items)");
-                p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.0f);
+                Sfx.play(plugin, p, "sell", Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.0f);
                 rollBonusDrop(p, data);
             } else {
                 p.sendMessage(ChatColor.RED + "You have no garbage to sell!");
+                Sfx.play(plugin, p, "shopFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.8f);
             }
             p.closeInventory();
             plugin.getScoreboardManager().updateForPlayer(p, data);
@@ -108,13 +105,12 @@ public class SellGui {
             if (e.getValue() <= 0) continue;
             Material mat = safeMaterial(plugin.getConfig().getString("garbage.types." + e.getKey() + ".material", "PAPER"), Material.PAPER);
             if (mat == clicked.getType()) {
-                int valuePer = plugin.getConfig().getInt("garbage.types." + e.getKey() + ".value", 1);
-                int earn = e.getValue() * valuePer;
+                int earn = data.getGarbageValue(e.getKey());
                 data.addMoney(earn);
                 data.addTotalEarned(earn);
-                data.setGarbage(e.getKey(), 0);
+                data.clearGarbageType(e.getKey());
                 p.sendMessage(ChatColor.GREEN + "Sold " + e.getValue() + " " + e.getKey() + " for $" + earn);
-                p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.0f);
+                Sfx.play(plugin, p, "sell", Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.0f);
                 rollBonusDrop(p, data);
                 p.closeInventory();
                 plugin.getScoreboardManager().updateForPlayer(p, data);
@@ -141,6 +137,7 @@ public class SellGui {
                 int amount = minmax[1] <= minmax[0] ? minmax[0] : minmax[0] + random.nextInt(minmax[1] - minmax[0] + 1);
                 p.getInventory().addItem(new ItemStack(mat, Math.max(1, amount)));
                 p.sendMessage(ChatColor.LIGHT_PURPLE + "Bonus loot! You found " + mat.name());
+                Sfx.play(plugin, p, "bonusLoot", Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);
                 return;
             }
         }

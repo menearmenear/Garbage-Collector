@@ -2,6 +2,7 @@ package com.menear.garbagecollector.ui;
 
 import com.menear.garbagecollector.GarbageCollectorPlugin;
 import com.menear.garbagecollector.PlayerData;
+import com.menear.garbagecollector.Stats;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -47,12 +48,20 @@ public class ScoreboardManager {
         String tierName = plugin.getConfig().getString("garbage.collector.tier" + tier + ".valueMultiplier") != null
                 ? "T" + tier : "T" + tier;
         int lineIndex = 0;
+        String zoneName = Stats.zoneDisplay(plugin, plugin.getZoneService().activeZone(data));
         for (String line : plugin.getConfig().getStringList("scoreboard.lines")) {
             String txt = ChatColor.translateAlternateColorCodes('&', line
                     .replace("%money%", String.valueOf(data.getMoney()))
                     .replace("%collected%", String.valueOf(data.getCollected()))
+                    .replace("%bag%", String.valueOf(data.totalGarbage()))
                     .replace("%luck%", String.valueOf(data.getGarbageLuck()))
-                    .replace("%tier%", tierName));
+                    .replace("%tier%", tierName)
+                    .replace("%level%", String.valueOf(plugin.getLevelService().level(data)))
+                    .replace("%zone%", zoneName)
+                    .replace("%power%", String.valueOf(Stats.power(plugin, data)))
+                    .replace("%efficiency%", String.valueOf(Stats.efficiency(plugin, data)))
+                    .replace("%magnet%", String.valueOf(Stats.magnet(plugin, data)))
+                    .replace("%capacity%", String.valueOf(Stats.capacity(plugin, data))));
             String colored = txt + ChatColor.RESET;
             Score score = obj.getScore(colored);
             score.setScore(10 - lineIndex);

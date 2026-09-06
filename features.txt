@@ -1,0 +1,492 @@
+=====================================================================
+ GARBAGE COLLECTOR - FULL FEATURE REFERENCE
+ (paper 1.20.4+, api 26.2, java 25)  -  version 0.1.0
+=====================================================================
+
+Everything the plugin does, gameplay side, including every GUI,
+every upgrade, every type of garbage and mob, and all default values.
+
+Check the in-game /garbage help for the latest command list.
+
+
+---------------------------------------------------------------------
+ 1. THE CORE LOOP
+---------------------------------------------------------------------
+
+1. Garbage spawns around the world / near players every few seconds.
+2. Walk up with your Trash Grabber (the tool) in hand.
+3. HOLD right-click on the garbage. A progress bar fills in your
+   action bar; when it fills, the piece is added to your BAG.
+4. Sell your bag with /sell to turn it into real money.
+5. Spend money on upgrades with /shop.
+6. Hunt Trash Monsters, collect every type, level up your Luck.
+
+
+---------------------------------------------------------------------
+ 2. THE COLLECTOR TOOL
+---------------------------------------------------------------------
+
+Command to get it:  /garbageitem   (also given free on first join)
+
+Material : STICK
+Name     : "&6Trash Grabber"  (gold "Trash Grabber")
+
+Lore (from config tool.lore, translated colors):
+  - "&7Click & hold garbage to collect it"
+  - "&7Sell your haul with &b/sell"
+  - "&7Upgrade this collector with &b/shop"
+  + automatic lines appended below the lore:
+  - "Tier: T1"          (gold)
+  - "Luck: 0"           (light purple)
+  - "Speed Lvl: 1"      (aqua)
+
+You MUST be holding it to collect. The requirement can be disabled
+in config (tool.requireTool). Killing mobs for loot also needs it.
+
+
+
+PLAYER COMMANDS
+---------------------------------------------------------------------
+/sell          - open the Sell GUI
+/shop          - open the Upgrade Shop
+/collection    - open your collection menu (2 tabs: Garbage + Mobs)
+/garbageitem   - get a fresh Trash Grabber
+
+ADMIN COMMANDS  (permission: garbage.admin, console always allowed)
+---------------------------------------------------------------------
+/garbage help                      - list admin commands
+/garbage give <player> [type] [tier] [luck]
+                                   - spawn one garbage of [type] at the
+                                     player, and optionally set their
+                                     collector tier / luck
+/garbage spawn <amount>            - spawn <amount> garbage scattered
+                                     around you (1-100)
+/garbage spawnburst <amount>       - same, quick burst (default 10)
+/garbage stats <player>            - money, total earned, collected,
+                                     bag size + bag value, tier, luck,
+                                     speed/magnet/quickhands/cooldown
+                                     levels, per-type counts
+/garbage luck <player> <amount>    - add <amount> luck
+/garbage reset <player>            - wipe a player's data
+/garbage reload                    - reload config.yml live
+
+
+---------------------------------------------------------------------
+ 3. GARBAGE (ITEMS)
+---------------------------------------------------------------------
+
+Every piece rolls a RARITY by weight first, then is one of the TYPES.
+
+GARBAGE TYPES (defaults):
+  Type     Material       Base value
+  paper    PAPER          $1
+  can      IRON_NUGGET    $3
+  bottle   GLASS_BOTTLE   $2
+  sock     LEATHER        $1
+  diamond  DIAMOND        $10
+
+RARITIES (weight -> value multiplier / XP):
+  Rarity     Weight   Value mult   XP    Color
+  Common     70       1.0x         1     White
+  Rare       20       3.0x         3     Cyan
+  Epic       8        8.0x         8     Magenta
+  Legendary  2        25.0x        20    Gold
+
+VISUAL:
+  - A floating item display (the type's material).
+  - A name tag above it showing the type + rarity-value, in the
+    rarity's color, e.g. "diamond $250".
+  - A colored dust particle sparkle when it spawns (rarity color).
+  - It GLOWS softly when you LOOK at it (within ~6 blocks).
+  - A soft spawn sound plays.
+
+BAG / VALUE:
+  The final value added to your bag is:
+      base value x rarity mult x collector-tier mult x luck mult
+  Rounded up to at least $1. XP is also given (rarity xp x luck).
+  Collecting fills your BAG (item count). When full, you must /sell.
+
+SPAWNING (defaults):
+  - Every 10 seconds a spawn tick runs (spawn.intervalSeconds).
+  - Mode "mixed": 60% chance it targets a random online player
+    (within 12 blocks of them), otherwise near world spawn
+    (within 30 blocks).
+  - 15% of spawns become a Trash Monster instead of an item.
+  - Garbage despawns after 120 seconds (garbage.ttlSeconds).
+
+
+---------------------------------------------------------------------
+ 4. COLLECTING - THE HOLD MECHANIC
+---------------------------------------------------------------------
+
+Right-clicking no longer collects instantly. You must KEEP interacting
+(hold the button; or keep tapping) for a moment:
+
+  - Base hold time: 3000 ms (3 seconds)   <- collect.baseHoldMillis
+  - Minimum possible: 400 ms              <- collect.minHoldMillis
+  - Each Quick Hands shop level removes    <- collect.holdReductionPerLevel
+    400 ms from the hold time.
+  - The progress resets if you let go for  <- collect.holdMaxGapMillis
+    longer than 1500 ms.
+
+The action bar shows a live progress bar while holding:
+      "Collecting... 70% 1s"  with a block-fill bar (green/gray).
+
+The hitbox is a "responsive" Interaction entity, so holding sends a
+stream of events -> the bar fills smoothly in real time.
+
+COOLDOWN BETWEEN PICKUPS:
+  - Base: 2000 ms (2 seconds)              <- collect.baseCooldownMillis
+  - Minimum: 300 ms                        <- collect.minCooldownMillis
+  - Each Cooldown shop level removes 350   <- collect.cooldownReductionPerLevel
+  - While cooling down, the action bar
+    shows "Cooldown... Ns".
+
+FAILURE MESSAGES (in the action bar):
+  - "You need the Trash Grabber!"   (no tool)
+  - "Bag full! Sell your haul with /sell"
+  - "Cooldown... Ns"
+
+
+---------------------------------------------------------------------
+ 5. THE UPGRADE SHOP  (/shop)
+---------------------------------------------------------------------
+
+GUI : 27 slots (3 rows), title "&8Upgrade Shop" = "§8Upgrade Shop".
+All items show green "Cost: $X" if affordable, red otherwise.
+
+=====================================================================
+ SLOT   ICON           NAME                  WHAT IT DOES
+=====================================================================
+ 10     IRON_PICKAXE   Upgrade Collector Tier  higher value + bag room
+ 11     FEATHER        Upgrade Quick Hands     less hold-to-collect time
+ 12     EXPERIENCE_BOTTLE Upgrade Garbage Luck  more money & drops
+ 13     CLOCK          Upgrade Cooldown        less time between pickups
+ 14     SUGAR          Upgrade Speed           faster walk speed
+ 15     (empty slot)
+ 16     COMPASS        Magnet Aura             auto-collect nearby garbage
+=====================================================================
+
+ 10) UPGRADE COLLECTOR TIER  (IRON_PICKAXE, gold)
+     Lore: "Current tier: T2", "Next tier: T3",
+           "  + Value multiplier x2.5", "  + Bag capacity 80",
+           "", "Cost: $2000"
+     Levels (config garbage.collector.*):
+       Tier  Value mult   Bag capacity   Cost
+       I     1.0x         20             free (start)
+       II    1.5x         40             $500
+       III   2.5x         80             $2000
+       IV    4.0x         150            $8000
+     Higher tiers also multiply everything you put in the bag.
+
+ 11) UPGRADE QUICK HANDS  (FEATHER, yellow)
+     Lore: "Current lvl: N", "Reduces the time you must hold to
+           collect", "Next: lvl N+1", "", "Cost: $X"
+     Levels (shop.quickHands.levels), each -400ms of hold time:
+       Lvl 1    $400            Lvl 4    $3000
+       Lvl 2    $900            Lvl 5    $5000
+       Lvl 3    $1700
+
+ 12) UPGRADE GARBAGE LUCK  (EXPERIENCE_BOTTLE, light purple)
+     Lore: "Current luck: N", "Buy +5 luck ($250)",
+           "Higher luck = more money & drops"
+     Each click spends roughly ("upgrade cost per point" x 5) and
+     adds up to +5 luck. Defaults:
+       - Each luck point = +2% money value, +3% XP
+         (luck.moneyBonusPerPoint, luck.xpBonusPerPoint)
+       - Each pickup has a 5% chance to gain +1 luck
+         (luck.gainOnCollectChance, default +1 per gain)
+       - Luck cap: 100  (luck.maxLuck)
+       - Price: 50 per point, 5 per purchase = $250
+         (luck.upgradeCostPerPoint, luck.upgradeMaxPerPurchase)
+     When your luck grows from collecting, a chat message shows:
+     "Your Garbage Luck grew! +1 (now N)"
+
+ 13) UPGRADE COOLDOWN  (CLOCK, blue)
+     Lore: "Current lvl: N", "Reduces time between collections",
+           "Next: lvl N+1", "", "Cost: $X"
+     Levels (shop.cooldown.levels), each -350ms of pickup cooldown:
+       Lvl 1    $400            Lvl 4    $3000
+       Lvl 2    $900            Lvl 5    $5000
+       Lvl 3    $1700
+
+ 14) UPGRADE SPEED  (SUGAR, aqua)
+     Lore: "Current speed lvl: N", "Next: lvl N+1 (walk speed 0.22)",
+           "", "Cost: $300"
+     Levels (shop.speed.levels):
+       Lvl 1   walk speed 0.20    free (start)
+       Lvl 2   walk speed 0.22    $300
+       Lvl 3   walk speed 0.25    $800
+       Lvl 4   walk speed 0.30    $2000
+     Applied instantly to the player's walk speed.
+
+ 16) MAGNET AURA  (COMPASS, dark purple)
+     Lore: "Auto-collects nearby garbage every 60s",
+           "Current lvl: N", "Next: lvl N+1 (radius 4)",
+           "", "Cost: $2500"
+     Levels (shop.magnet.levels): radius + cooldown seconds + cost
+       Lvl 1   radius 3   every 60s    $1000
+       Lvl 2   radius 4   every 45s    $2500
+       Lvl 3   radius 5   every 30s    $4500
+       Lvl 4   radius 7   every 20s    $8000
+       Lvl 5   radius 9   every 10s    $14000
+     Passive while online: picks the nearest ITEM garbage within the
+     radius and auto-adds it to your bag (does NOT need the tool in
+     hand, does NOT trigger the manual cooldown). On pickup:
+       - Chat message: "[Magnet] Auto-collected <type> (+$X bag)"
+       - End-rod particle burst around you
+       - "magnet" sound (entity experience orb pickup)
+     The magnet is a completely separate cooldown from the manual
+     one. Bag-full items are skipped (nothing lost).
+
+When you buy anything:
+  - Green chat confirmation ("X upgraded to lvl N for $Y").
+  - Purchase sound (anvil) or a bass "denied" sound on failure,
+    e.g. "Not enough money! You need $X" / "Max ... reached!"
+  - The menu closes after each purchase.
+
+
+---------------------------------------------------------------------
+ 6. THE SELL GUI  (/sell)
+---------------------------------------------------------------------
+
+GUI : 27 slots, title "&8Sell Garbage" = "§8Sell Garbage".
+
+  - Slots 0+ : ONE item per garbage type you currently have bagged.
+      Icon    = the type's material, stacked up to 64
+      Name    = Yellow, capitalized type ("Diamond")
+      Lore    = "You have: 5" (gold)
+                "Bag value: $75" (green)
+                "Click to sell this type"
+      Click   = sells that whole type for its bag value.
+  - Slot 26 : GOLD_INGOT, "Sell ALL" (green)
+      Lore    = "Sell every garbage type"
+                "Total value: $150"
+      Click   = clears the whole bag and pays everything out.
+
+SELL RESULT:
+  - Money is added to your wallet and to "total earned".
+  - Chat: "Sold all garbage for $150 (12 items)"
+         or "Sold 5 diamond for $75"
+  - Sell sound (experience orb) + a level-up "bonus loot" sound
+    when you also roll bonus loot.
+
+BONUS LOOT ON SALE (config sell.bonusLoot)
+  - Every sale rolls ONE bonus item; luck adds to each roll's chance:
+      final chance = table chance + luck x 0.01
+  - Table (defaults): material / chance / amount:
+      DIAMOND   2%   1
+      EMERALD   5%   1-2
+      GOLD_INGOT 8%  1-3
+      BONE     20%   1-4
+  - On a hit: "Bonus loot! You found DIAMOND" + level-up sound.
+  - The item is dropped straight into your inventory.
+
+
+---------------------------------------------------------------------
+ 7. TRASH MONSTERS (MOBS)
+---------------------------------------------------------------------
+
+What they are: a mob (default ZOMBIE, config mob.type) wearing one
+garbage type as its helmet.
+
+  - Spawn chance: 15% of every spawn tick (spawn.mobChance).
+  - Tier (I - V, config mob.maxTier), weighted toward lower tiers.
+  - Health: base 20 hearts, +50% per tier above I
+            (mob.healthPerTier = 1.5).
+  - Name tag shows tier + a LIVE HEART BAR + numbers:
+       "Trash Monster III 8/20"  with red hearts for HP.
+    Example: Trash Monster III  (hearts fill, e.g. 13/20)
+  - They burn nothing special, act like normal zombies otherwise.
+
+FIGHTING / LOOT:
+  - Must hold the Trash Grabber to get the loot. Without it:
+      action bar "You need the Trash Grabber to loot trash monsters!"
+  - On death (with tool): the garbage they wore drops as a collectible
+    item on the ground, its base value scaled by the mob's tier
+    (x1.5 per tier, mob.valuePerTier).
+  - A luck-scaled drop table also rolls on kill (mob.drops):
+      BONE          20%   1-4
+      ROTTEN_FLESH  30%   1-3
+      chance + luck x luckDropChanceBonusPerPoint (default 0.01)
+  - Death effects: a cloud particle burst + zombie-death sound +
+    "mobLoot" sound if anything dropped.
+  - Mobs don't drop their normal drops; only the loot table.
+
+KILL DAMAGE SOUND: a zombie-hurt sound fires on every hit (mobHurt).
+
+COLLECTION: every kill records (mob name, tier, +1). See collection
+menu below. Note: mini-bosses/bosses are not in this version.
+
+
+---------------------------------------------------------------------
+ 8. THE COLLECTION MENU  (/collection)
+---------------------------------------------------------------------
+
+GUI : 45 slots (5 rows), title "&8Your Collection" = "§8Your Collection".
+  - Gray stained-glass border on row 0, row 4, column 0, column 8.
+  - Tab buttons:
+    Slot 0 : "Garbage"  - PAPER when selected (gold, "» Garbage «"),
+                          WHITE_DYE when not selected
+                          lore: "Click to view garbage"
+    Slot 8 : "Mobs"     - IRON_SWORD when selected (red), WHITE_DYE
+                          when not selected; lore: "Click to view mobs"
+  - Content area slots: 10-16, 19-25, 28-34.
+
+GARBAGE TAB (sorted by type value, highest first):
+  For every type in config:
+    Icon   = the type's material, stacked up to 64 (collection total)
+    Name   = Yellow, "Diamond"
+    Lore   = "Collection: 12" (gold)
+             "Unlocked: Yes" (green) or "No" (red)
+             "In bag: 3" (aqua)
+             "Sell value: $10" (green)
+
+MOBS TAB:
+  One entry per mob (from config mob.collectionName.*, falling back
+  to the default "Trash Monster", plus any monsters you've killed).
+    Icon   = from mob.collectionName.<name>.material (default IRON_SWORD)
+    Name   = red "<Name> (total kills)"
+    Lore   = per tier, ascending:
+               "Tier I: 12"          (gold = discovered)
+               "Tier II: not discovered"  (dark gray = no kills yet)
+             and lastly "Total kills: 12"
+  Undiscovered tiers show as "not discovered" for every tier up to
+  config mob.maxTier - the tab is never empty.
+
+Clicking a tab button switches tabs (with a UI click sound). The
+menu title stays the same for both tabs.
+
+
+---------------------------------------------------------------------
+ 9. STATUS HUD / ACTION BAR / SCOREBOARD
+---------------------------------------------------------------------
+
+ACTION BAR (refresh every second):
+  "Bag: 12/40  |  $1250"
+  (gold "Bag", white count/capacity, green wallet amount)
+
+Transient action-bar messages (they replace the default temporarily):
+  - collecting hold progress bar
+  - pickup confirmation: "+$75 diamond  |  Bag: 13/40 | Luck: 4"
+      (rarity-colored type, "Bag: n/cap", "Luck: n (+1)" when raised)
+  - "Cooldown... 1s"     - manual cooldown
+  - "Bag full!" / "You need the Trash Grabber!"
+  - "Trash monster slain - loot dropped!"
+
+SCOREBOARD (sidebar, title "&6Garbage Collector", config scoreboard.*):
+  - "Money: $1250"
+  - "Collected: 12"
+  - "Luck: 4"
+  - "Tier: T1"
+  (templates configurable exactly in config.yml)
+
+
+---------------------------------------------------------------------
+ 10. SOUND DESIGN
+---------------------------------------------------------------------
+
+Every sound is configurable (config sounds.events.* : sound, volume,
+pitch) and redispatched on /garbage reload. Master toggle:
+sounds.enabled: false = silence. Config effects.particles: false
+disables particles.
+
+Events (default):
+  spawn       block enchantment use (low)        on garbage spawn
+  mobSpawn    zombie ambient                      on Trash Monster spawn
+  collect     experience orb pickup               on pickup
+  collectRare note-block chime (high)             on rare+ pickup
+  collectFail note-block bass (low)               on failed attempt
+  luckUp      player level-up                     when luck grows
+  mobHurt     zombie hurt                         on mob hit
+  mobDeath    zombie death                        on mob death
+  mobLoot     item pickup                         if loot dropped
+  magnet      experience orb pickup               magnet pull
+  sell        experience orb pickup               on sale
+  bonusLoot   player level-up                     bonus item on sale
+  shop        anvil use                           on purchase
+  shopFail    note-block bass (low)               on denied purchase
+  guiOpen     chest open                          opening any GUI
+  guiClick    wooden button click                 switching tabs
+
+
+---------------------------------------------------------------------
+ 11. PLAYER DATA & PERSISTENCE
+---------------------------------------------------------------------
+
+Saved per player to: plugins/Garbage-Collector/players/<uuid>.yml
+  - money, totalEarned, collected (bag item count)
+  - collectorTier, garbageLuck, speedLevel, magnetLevel,
+    pickupLevel (quick hands), cooldownLevel
+  - per-type garbageCount (bag items) and garbageValue (bag value)
+  - lifetime collection: per-type collection counts
+  - lifetime collection: per-mob per-tier kill counts (mobKillsTotal)
+
+Saved on quit and on plugin disable. /garbage reset wipes everything.
+
+
+---------------------------------------------------------------------
+ 12. CONFIG & AUTO-UPDATE
+---------------------------------------------------------------------
+
+Main file: plugins/Garbage-Collector/config.yml
+
+CONFIG AUTO-UPDATE:
+  config.yml has a "config-version" marker. On startup the plugin
+  compares it to the bundled default; if your file is older it
+  MERGES in every missing option (keeping the exact values you
+  already tuned) and bumps the version. So an old/different server
+  config gets fixed automatically - no manual reset ever needed.
+
+Sections:
+  config-version : bump = force re-merge on next start
+  spawn          : interval, world, radius, mode, player radius,
+                   mob chance, burst spread
+  collect        : base/min hold millis + reduction per Quick Hands
+                   level, hold max-gap, base/min cooldown millis +
+                   reduction per Cooldown level
+  garbage        : ttl, collector tiers (mult, capacity, cost)
+  garbage.rarities : weight, color, glow dye, xp, value multiplier
+  garbage.types  : material + base value
+  luck           : money/xp bonus per point, gain chance/amount,
+                   max, upgrade cost + per-purchase amount
+  shop           : speed levels, quickHands levels, cooldown levels,
+                   magnet levels (radius, cooldownSeconds, cost)
+  sell           : alwaysBonusChance, bonusLoot table
+  tool           : material, name, lore
+  mob            : type, name, maxTier, health/value per tier, drop
+                   table, luck drop bonus
+  effects        : particles toggle, sounds toggle
+  sounds.events  : every sound event (sound/volume/pitch)
+  scoreboard     : title + line templates
+  admin          : admin permission node
+
+Run /garbage reload for live changes. Interval/spawn-rate and
+config-version changes need a restart.
+
+
+---------------------------------------------------------------------
+ 13. SPAWNING RULES SUMMARY (defaults)
+---------------------------------------------------------------------
+
+  - interval              : 10 seconds
+  - mode                  : mixed (near players 60%, else world spawn)
+  - near-player radius    : 12 blocks
+  - world-spawn radius    : 30 blocks
+  - mob chance per tick   : 15%
+  - burst spread          : 20 blocks (/garbage spawn)
+  - despawn               : 120 seconds
+  - garbage hitbox        : responsive Interaction + item display +
+                            colored name tag
+  - look-to-glow range    : 6 blocks
+
+
+---------------------------------------------------------------------
+ 14. PERMISSIONS
+---------------------------------------------------------------------
+
+  garbage.admin : all /garbage admin commands (console has it too).
+
+---------------------------------------------------------------------
+  END OF REFERENCE
+---------------------------------------------------------------------
