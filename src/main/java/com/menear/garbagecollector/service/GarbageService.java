@@ -11,6 +11,12 @@ public interface GarbageService {
     void spawnAt(Location location);
     void spawnAt(Location location, String forcedType);
     void spawnBurst(Location location, int amount);
+    void spawnZoneBurst(Player forPlayer, Location location, int amount);
+    void spawnMiniBoss(Player target);
+    void setToxicActive(long until);
+    boolean isToxicActive();
+    void setGoldenActive(long until);
+    boolean isGoldenActive();
     boolean isGarbage(Entity entity);
     ActiveGarbage findGarbage(Entity entity);
     CollectionResult collect(Player player, ActiveGarbage garbage);

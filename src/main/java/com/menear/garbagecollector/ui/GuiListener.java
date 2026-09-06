@@ -21,6 +21,18 @@ public class GuiListener implements Listener {
             plugin.getShopGui().onClick(event);
         } else if (title.equals(CollectionGui.title())) {
             plugin.getCollectionGui().onClick(event);
+        } else if (title.equals(RecycleGui.title())) {
+            plugin.getRecycleGui().onClick(event);
+        } else if (title.equals(ZoneGui.title())) {
+            plugin.getZoneGui().onClick(event);
+        } else if (title.equals(MissionGui.title())) {
+            plugin.getMissionGui().onClick(event);
+        } else if (title.equals(AchievementGui.title())) {
+            plugin.getAchievementGui().onClick(event);
+        } else if (title.equals(LeaderboardGui.title())) {
+            plugin.getLeaderboardGui().onClick(event);
+        } else {
+            plugin.getShopGui().onClick(event);
         }
     }
 }

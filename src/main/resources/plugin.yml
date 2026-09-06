@@ -21,3 +21,18 @@ commands:
   collection:
     description: Open your garbage collection
     usage: /<command>
+  recycle:
+    description: Turn bag garbage into recycled materials
+    usage: /<command>
+  zone:
+    description: View and travel to garbage zones
+    usage: /<command>
+  missions:
+    description: View your daily contracts
+    usage: /<command>
+  achievements:
+    description: View your achievements
+    usage: /<command>
+  leaderboard:
+    description: View the top players
+    usage: /<command>

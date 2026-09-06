@@ -2,9 +2,13 @@ package com.menear.garbagecollector;
 
 import org.bukkit.DyeColor;
 import org.bukkit.Location;
+import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 public class ActiveGarbage {
@@ -25,6 +29,14 @@ public class ActiveGarbage {
     private Entity hologramEntity;
     private boolean glowing;
     private int mobTier = 1;
+    private String mobId;
+    private String monsterName;
+    private boolean miniBoss;
+    private BossBar bossBar;
+    private final Map<UUID, Double> bossDamage = new HashMap<>();
+    private String zoneId;
+    private double mobValueMult = 1.0;
+    private int mobXp = 10;
 
     public ActiveGarbage(UUID id, String typeName, int baseValue, String rarityName, int rarityXp,
                          double rarityMult, String colorHex, DyeColor glowColor, Location location, boolean mob) {
@@ -56,6 +68,39 @@ public class ActiveGarbage {
     public void setMob(LivingEntity mob, int tier) { this.mobTier = Math.max(1, tier); }
     public int getMobTier() { return mobTier; }
 
+    public void setMobInfo(String mobId, String monsterName, boolean miniBoss) {
+        this.mobId = mobId;
+        this.monsterName = monsterName;
+        this.miniBoss = miniBoss;
+    }
+    public String getMobId() { return mobId; }
+    public String getMonsterName() { return monsterName; }
+    public boolean isMiniBoss() { return miniBoss; }
+
+    public void setBossBar(BossBar bossBar) { this.bossBar = bossBar; }
+    public BossBar getBossBar() { return bossBar; }
+
+    public void addBossDamage(Player player, double damage) {
+        bossDamage.merge(player.getUniqueId(), damage, Double::sum);
+    }
+    public UUID getTopDamager() {
+        UUID best = null;
+        double bestDmg = 0;
+        for (Map.Entry<UUID, Double> e : bossDamage.entrySet()) {
+            if (e.getValue() > bestDmg) { bestDmg = e.getValue(); best = e.getKey(); }
+        }
+        return best;
+    }
+
+    public void setZoneId(String zoneId) { this.zoneId = zoneId; }
+    public String getZoneId() { return zoneId; }
+
+    public void setMobValueMult(double mult) { this.mobValueMult = Math.max(1.0, mult); }
+    public double getMobValueMult() { return mobValueMult; }
+
+    public void setMobXp(int xp) { this.mobXp = Math.max(1, xp); }
+    public int getMobXp() { return mobXp; }
+
     public Entity raycastTarget() {
         return visualEntity != null ? visualEntity : clickEntity;
     }
@@ -74,6 +119,10 @@ public class ActiveGarbage {
     }
 
     public void remove() {
+        if (bossBar != null) {
+            bossBar.removeAll();
+            bossBar = null;
+        }
         for (Entity e : new Entity[] { clickEntity, visualEntity, hologramEntity }) {
             if (e != null) e.remove();
         }
