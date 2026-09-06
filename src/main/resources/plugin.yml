@@ -1,0 +1,11 @@
+name: Garbage-Collector
+main: com.menear.garbagecollector.GarbageCollectorPlugin
+version: 0.1.0
+api-version: 1.20
+author: menearmenear
+
+commands:
+  garbage:
+    description: Garbage plugin commands
+    usage: /<command> <reload>
+    permission: garbage.admin
