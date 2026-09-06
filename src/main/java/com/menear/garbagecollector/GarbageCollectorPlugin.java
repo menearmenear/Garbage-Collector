@@ -31,6 +31,7 @@ public final class GarbageCollectorPlugin extends JavaPlugin {
         instance = this;
 
         saveDefaultConfig();
+        new ConfigManager(this).ensureDefaults();
 
         // Services and managers
         this.statusBarManager = new StatusBarManager(this);

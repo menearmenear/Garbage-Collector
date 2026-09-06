@@ -30,7 +30,7 @@ public class PlayerListeners implements Listener {
         Player p = event.getPlayer();
         ActiveGarbage garbage = garbageService.findGarbage(event.getRightClicked());
         if (garbage == null) return;
-        garbageService.collect(p, garbage);
+        garbageService.interact(p, garbage);
     }
 
     @EventHandler

@@ -14,6 +14,7 @@ public interface GarbageService {
     boolean isGarbage(Entity entity);
     ActiveGarbage findGarbage(Entity entity);
     CollectionResult collect(Player player, ActiveGarbage garbage);
+    void interact(Player player, ActiveGarbage garbage);
     void handleMobKilled(Player killer, ActiveGarbage garbage);
     void updateGlow();
     void despawnExpired();

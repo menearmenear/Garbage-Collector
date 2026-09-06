@@ -17,6 +17,8 @@ public class PlayerData {
     private int garbageLuck;
     private int speedLevel = 1;
     private int magnetLevel;
+    private int pickupLevel;
+    private int cooldownLevel;
     private final Map<String, Integer> garbageCount = new HashMap<>();
     private final Map<String, Integer> garbageValue = new HashMap<>();
     private final Map<String, Integer> collectionGarbage = new HashMap<>();
@@ -41,6 +43,8 @@ public class PlayerData {
             data.garbageLuck = cfg.getInt("garbageLuck", 0);
             data.speedLevel = Math.max(1, cfg.getInt("speedLevel", 1));
             data.magnetLevel = Math.max(0, cfg.getInt("magnetLevel", 0));
+            data.pickupLevel = Math.max(0, cfg.getInt("pickupLevel", 0));
+            data.cooldownLevel = Math.max(0, cfg.getInt("cooldownLevel", 0));
             if (cfg.isConfigurationSection("garbageCount")) {
                 cfg.getConfigurationSection("garbageCount").getKeys(false).forEach(k ->
                         data.garbageCount.put(k, cfg.getInt("garbageCount." + k, 0)));
@@ -76,6 +80,8 @@ public class PlayerData {
         cfg.set("garbageLuck", garbageLuck);
         cfg.set("speedLevel", speedLevel);
         cfg.set("magnetLevel", magnetLevel);
+        cfg.set("pickupLevel", pickupLevel);
+        cfg.set("cooldownLevel", cooldownLevel);
         cfg.set("garbageCount.data", null);
         String base = "garbageCount.";
         garbageCount.forEach((k, v) -> cfg.set(base + k, v));
@@ -124,6 +130,12 @@ public class PlayerData {
 
     public int getMagnetLevel() { return magnetLevel; }
     public void setMagnetLevel(int magnetLevel) { this.magnetLevel = Math.max(0, magnetLevel); }
+
+    public int getPickupLevel() { return pickupLevel; }
+    public void setPickupLevel(int pickupLevel) { this.pickupLevel = Math.max(0, pickupLevel); }
+
+    public int getCooldownLevel() { return cooldownLevel; }
+    public void setCooldownLevel(int cooldownLevel) { this.cooldownLevel = Math.max(0, cooldownLevel); }
 
     public void addGarbage(String type, int n) {
         garbageCount.merge(type, n, Integer::sum);

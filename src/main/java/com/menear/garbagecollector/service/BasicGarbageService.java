@@ -45,7 +45,19 @@ public class BasicGarbageService implements GarbageService {
     private final Map<UUID, ActiveGarbage> garbages = new ConcurrentHashMap<>();
     private final Map<UUID, Long> collectCooldowns = new ConcurrentHashMap<>();
     private final Map<UUID, Long> magnetCooldowns = new ConcurrentHashMap<>();
+    private final Map<UUID, Hold> holds = new ConcurrentHashMap<>();
     private final List<Rarity> rarities = new ArrayList<>();
+
+    public static final class Hold {
+        final ActiveGarbage g;
+        long lastEvent;
+        long progress;
+        Hold(ActiveGarbage g, long now) {
+            this.g = g;
+            this.lastEvent = now;
+            this.progress = 0;
+        }
+    }
 
     private static final class Rarity {
         final String name; final int weight; final String colorHex;
@@ -110,6 +122,7 @@ public class BasicGarbageService implements GarbageService {
         if (plugin.getConfig().getBoolean("shop.magnet.enabled", true)) {
             Bukkit.getScheduler().runTaskTimer(plugin, this::magnetTick, 20L, 10L);
         }
+        Bukkit.getScheduler().runTaskTimer(plugin, this::updateHoldBars, 20L, 4L);
     }
 
     // -------------------------------------------------------------
@@ -211,6 +224,7 @@ public class BasicGarbageService implements GarbageService {
         Interaction inter = world.spawn(loc, Interaction.class);
         inter.setInteractionWidth(0.6f);
         inter.setInteractionHeight(0.6f);
+        inter.setResponsive(true);
         inter.setPersistent(true);
         inter.getPersistentDataContainer().set(garbageKey, PersistentDataType.STRING, id.toString());
 
@@ -393,10 +407,118 @@ public class BasicGarbageService implements GarbageService {
 
     @Override
     public CollectionResult collect(Player player, ActiveGarbage garbage) {
+        return doCollect(player, garbage, true, true);
+    }
+
+    /**
+     * Hold-to-collect entry point. Repeated interactions with the same
+     * garbage accumulate "hold" time (real elapsed time between events).
+     * When the required hold duration is reached the garbage is collected.
+     */
+    @Override
+    public void interact(Player player, ActiveGarbage garbage) {
+        if (player == null || !player.isOnline() || garbage == null) return;
+        PlayerData data = plugin.getPlayerService().getPlayerData(player.getUniqueId());
+
+        // fail fast so the player never wastes a full hold on a useless attempt
+        if (!hasTool(player)) {
+            player.sendActionBar(ChatColor.RED + "You need the "
+                    + plugin.getConfig().getString("tool.name", "&6Trash Grabber").replace("&", "\u00A7") + "!");
+            Sfx.play(plugin, player, "collectFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.5f);
+            return;
+        }
+        if (data.getCollected() >= collectorBagCapacity(data)) {
+            player.sendActionBar(ChatColor.RED + "Bag full! Sell your haul with /sell");
+            Sfx.play(plugin, player, "collectFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.5f);
+            return;
+        }
+        long manualCd = effectiveCollectCooldown(data);
+        if (manualCd > 0) {
+            Long last = collectCooldowns.get(player.getUniqueId());
+            if (last != null) {
+                long elapsed = System.currentTimeMillis() - last;
+                if (elapsed < manualCd) {
+                    int leftSec = (int) Math.ceil((manualCd - elapsed) / 1000.0);
+                    player.sendActionBar(ChatColor.GRAY + "Cooldown... " + ChatColor.YELLOW + leftSec + "s");
+                    return;
+                }
+            }
+        }
+
+        UUID uid = player.getUniqueId();
+        long now = System.currentTimeMillis();
+        Hold hold = holds.get(uid);
+        if (hold == null || hold.g != garbage) {
+            holds.put(uid, new Hold(garbage, now));
+            hold = holds.get(uid);
+        }
+        long gap = now - hold.lastEvent;
+        long maxGap = plugin.getConfig().getLong("collect.holdMaxGapMillis", 1500);
+        if (gap > maxGap) {
+            hold.progress = 0;
+        }
+        hold.lastEvent = now;
+        if (gap <= maxGap) {
+            hold.progress += gap;
+        }
+
+        long required = requiredHoldMillis(data);
+        if (hold.progress >= required) {
+            holds.remove(uid);
+            doCollect(player, garbage, true, true);
+            return;
+        }
+        sendHoldBar(player, data, hold, required);
+    }
+
+    private long requiredHoldMillis(PlayerData data) {
+        long base = plugin.getConfig().getLong("collect.baseHoldMillis", 3000);
+        long min = plugin.getConfig().getLong("collect.minHoldMillis", 400);
+        long red = plugin.getConfig().getLong("collect.holdReductionPerLevel", 400);
+        return Math.max(min, base - data.getPickupLevel() * red);
+    }
+
+    private long effectiveCollectCooldown(PlayerData data) {
+        long base = plugin.getConfig().getLong("collect.baseCooldownMillis", 2000);
+        long min = plugin.getConfig().getLong("collect.minCooldownMillis", 300);
+        long red = plugin.getConfig().getLong("collect.cooldownReductionPerLevel", 350);
+        return Math.max(min, base - data.getCooldownLevel() * red);
+    }
+
+    private void sendHoldBar(Player player, PlayerData data, Hold hold, long required) {
+        long progress = Math.min(required, hold.progress);
+        int pct = (int) Math.round(progress * 100.0 / required);
+        int filled = (int) Math.round(pct / 10.0);
+        int remainSec = (int) Math.ceil(Math.max(0, required - progress) / 1000.0);
+        String bar = ChatColor.GREEN + "█".repeat(filled) + ChatColor.GRAY + "░".repeat(10 - filled);
+        player.sendActionBar(ChatColor.GOLD + "Collecting... " + bar + ChatColor.GRAY + " " + pct + "%  "
+                + ChatColor.YELLOW + remainSec + "s");
+    }
+
+    private void updateHoldBars() {
+        long now = System.currentTimeMillis();
+        long maxGap = plugin.getConfig().getLong("collect.holdMaxGapMillis", 1500);
+        for (Map.Entry<UUID, Hold> e : new ArrayList<>(holds.entrySet())) {
+            Player p = Bukkit.getPlayer(e.getKey());
+            if (p == null || !p.isOnline()) {
+                holds.remove(e.getKey());
+                continue;
+            }
+            Hold hold = e.getValue();
+            if (now - hold.lastEvent > maxGap) {
+                holds.remove(e.getKey());
+                continue;
+            }
+            PlayerData data = plugin.getPlayerService().getPlayerData(p.getUniqueId());
+            sendHoldBar(p, data, hold, requiredHoldMillis(data));
+        }
+    }
+
+    private CollectionResult doCollect(Player player, ActiveGarbage garbage, boolean requireTool, boolean checkManualCooldown) {
         if (player == null || !player.isOnline() || garbage == null) return CollectionResult.fail("");
         PlayerData data = plugin.getPlayerService().getPlayerData(player.getUniqueId());
 
-        if (!hasTool(player)) {
+        if (requireTool && !hasTool(player)) {
             String name = plugin.getConfig().getString("tool.name", "&6Trash Grabber").replace("&", "\u00A7");
             player.sendActionBar(ChatColor.RED + "You need the " + name + "!");
             Sfx.play(plugin, player, "collectFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.5f);
@@ -407,11 +529,13 @@ public class BasicGarbageService implements GarbageService {
             Sfx.play(plugin, player, "collectFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.5f);
             return CollectionResult.fail("bag full");
         }
-        long cooldownMs = plugin.getConfig().getLong("collect.cooldownMillis", 700);
-        if (cooldownMs > 0) {
-            Long last = collectCooldowns.get(player.getUniqueId());
-            if (last != null && System.currentTimeMillis() - last < cooldownMs) {
-                return CollectionResult.fail("cooldown");
+        if (checkManualCooldown) {
+            long cooldownMs = effectiveCollectCooldown(data);
+            if (cooldownMs > 0) {
+                Long last = collectCooldowns.get(player.getUniqueId());
+                if (last != null && System.currentTimeMillis() - last < cooldownMs) {
+                    return CollectionResult.fail("cooldown");
+                }
             }
         }
 
@@ -427,7 +551,9 @@ public class BasicGarbageService implements GarbageService {
         data.addGarbage(garbage.typeName, 1);
         data.addCollectionGarbage(garbage.typeName, 1);
         data.addCollected(1);
-        collectCooldowns.put(player.getUniqueId(), System.currentTimeMillis());
+        if (checkManualCooldown) {
+            collectCooldowns.put(player.getUniqueId(), System.currentTimeMillis());
+        }
 
         int xp = Math.max(1, (int) Math.round(garbage.rarityXp * (1 + luck * plugin.getConfig().getDouble("luck.xpBonusPerPoint", 0.03))));
         player.giveExpLevels(xp);
@@ -564,20 +690,24 @@ public class BasicGarbageService implements GarbageService {
             if (level <= 0) continue;
             String lvlPath = "shop.magnet.levels." + level;
             double radius = plugin.getConfig().getDouble(lvlPath + ".radius", 3);
-            int intervalMs = Math.max(1, plugin.getConfig().getInt(lvlPath + ".pullIntervalSeconds", 3)) * 1000;
+            int intervalMs = Math.max(1, plugin.getConfig().getInt(lvlPath + ".cooldownSeconds", 60)) * 1000;
 
             Long last = magnetCooldowns.get(p.getUniqueId());
             if (last != null && System.currentTimeMillis() - last < intervalMs) continue;
 
             ActiveGarbage nearest = nearestItem(p, radius);
             if (nearest == null) continue;
+
+            CollectionResult result = doCollect(p, nearest, false, false);
+            if (result == null || !result.success) continue;
             magnetCooldowns.put(p.getUniqueId(), System.currentTimeMillis());
-            collect(p, nearest);
             Sfx.play(plugin, p, "magnet", Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.4f);
             if (plugin.getConfig().getBoolean("effects.particles", true)) {
                 p.getWorld().spawnParticle(Particle.END_ROD, p.getLocation().clone().add(0, 1, 0),
                         6, 0.3, 0.5, 0.3, 0.02);
             }
+            p.sendMessage(ChatColor.LIGHT_PURPLE + "[Magnet] Auto-collected "
+                    + colorize(result.garbageType, nearest.colorHex) + " (+$" + result.value + " bag)");
         }
     }
 

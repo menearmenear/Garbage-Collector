@@ -2,7 +2,13 @@
 #  Garbage Collector - configuration
 #  Run /garbage reload for most changes.
 #  Interval changes need a server restart.
+#  The plugin auto-merges any missing options into an older
+#  config.yml on startup (your tweaks are kept).
 # ===========================================================
+
+# Version of this config. When the plugin ships a higher version,
+# the missing options are merged in automatically on startup.
+config-version: 2
 
 spawn:
   # Interval in seconds between spawn ticks
@@ -22,11 +28,24 @@ spawn:
   # Radius for the /garbage spawn spread (blocks)
   burstSpread: 20
 
+collect:
+  # Hold-to-collect: you must keep interacting (right-click/hold) for
+  # this long to pick garbage up. Shown as a progress bar in the action bar.
+  baseHoldMillis: 3000
+  minHoldMillis: 400
+  # Each "Quick Hands" shop level lowers the required hold time by this much
+  holdReductionPerLevel: 400
+  # Max gap between interactions before the hold progress resets
+  holdMaxGapMillis: 1500
+  # Post-collect cooldown between successful pickups (anti-click-spam)
+  baseCooldownMillis: 2000
+  minCooldownMillis: 300
+  # Each "Cooldown" shop level lowers the cooldown by this much
+  cooldownReductionPerLevel: 350
+
 garbage:
   # Seconds garbage stays before despawning (0 = never)
   ttlSeconds: 120
-  # Minimum milliseconds between manual collects (anti-click-spam)
-  cooldownMillis: 700
   # Collector tiers: higher tier = more value & more bag capacity
   # tiers are named "tier1", "tier2", ...
   collector:
@@ -117,23 +136,60 @@ shop:
       4:
         walkSpeed: 0.3
         cost: 2000
-  # Magnet: auto-collects the nearest garbage within a radius
-  # every pullIntervalSeconds while you are online.
+  # Quick Hands: reduces the hold-to-collect time
+  quickHands:
+    enabled: true
+    levels:
+      1:
+        cost: 400
+      2:
+        cost: 900
+      3:
+        cost: 1700
+      4:
+        cost: 3000
+      5:
+        cost: 5000
+  # Cooldown: reduces the time between successful collections
+  cooldown:
+    enabled: true
+    levels:
+      1:
+        cost: 400
+      2:
+        cost: 900
+      3:
+        cost: 1700
+      4:
+        cost: 3000
+      5:
+        cost: 5000
+  # Magnet: auto-collects the nearest garbage within a radius every
+  # cooldownSeconds while you are online. Higher levels = wider radius
+  # and a much shorter cooldown.
   magnet:
     enabled: true
     levels:
       1:
         radius: 3
-        pullIntervalSeconds: 3
+        cooldownSeconds: 60
         cost: 1000
       2:
-        radius: 5
-        pullIntervalSeconds: 2
+        radius: 4
+        cooldownSeconds: 45
         cost: 2500
       3:
-        radius: 8
-        pullIntervalSeconds: 1
-        cost: 6000
+        radius: 5
+        cooldownSeconds: 30
+        cost: 4500
+      4:
+        radius: 7
+        cooldownSeconds: 20
+        cost: 8000
+      5:
+        radius: 9
+        cooldownSeconds: 10
+        cost: 14000
 
 sell:
   # Money earned per garbage unit of each base type after rarity multiplier
@@ -157,7 +213,7 @@ tool:
   material: STICK
   name: "&6Trash Grabber"
   lore:
-    - "&7Right-click garbage to collect it"
+    - "&7Click & hold garbage to collect it"
     - "&7Sell your haul with &b/sell"
     - "&7Upgrade this collector with &b/shop"
 

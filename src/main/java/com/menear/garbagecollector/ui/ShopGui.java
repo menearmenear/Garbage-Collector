@@ -32,7 +32,9 @@ public class ShopGui {
         Inventory inv = Bukkit.createInventory(null, 27, title());
 
         inv.setItem(10, tierItem(data));
+        inv.setItem(11, quickHandsItem(data));
         inv.setItem(12, luckItem(data));
+        inv.setItem(13, cooldownItem(data));
         inv.setItem(14, speedItem(data));
         if (plugin.getConfig().getBoolean("shop.magnet.enabled", true)) {
             inv.setItem(16, magnetItem(data));
@@ -90,6 +92,58 @@ public class ShopGui {
         return item;
     }
 
+    private ItemStack quickHandsItem(PlayerData data) {
+        int lvl = data.getPickupLevel();
+        ItemStack item = new ItemStack(Material.FEATHER);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(ChatColor.YELLOW + "Upgrade Quick Hands");
+        List<String> lore = new ArrayList<>();
+        lore.add(ChatColor.GRAY + "Current lvl: " + ChatColor.YELLOW + lvl);
+        lore.add(ChatColor.GRAY + "Reduces the time you must hold to collect");
+        String nextPath = "shop.quickHands.levels." + (lvl + 1);
+        if (plugin.getConfig().isConfigurationSection(nextPath)) {
+            int cost = plugin.getConfig().getInt(nextPath + ".cost", -1);
+            lore.add(ChatColor.GRAY + "Next: lvl " + ChatColor.YELLOW + (lvl + 1));
+            lore.add("");
+            if (data.hasMoney(cost)) {
+                lore.add(ChatColor.GREEN + "Cost: $" + cost);
+            } else {
+                lore.add(ChatColor.RED + "Cost: $" + cost);
+            }
+        } else {
+            lore.add(ChatColor.GRAY + "Max level reached!");
+        }
+        meta.setLore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack cooldownItem(PlayerData data) {
+        int lvl = data.getCooldownLevel();
+        ItemStack item = new ItemStack(Material.CLOCK);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(ChatColor.BLUE + "Upgrade Cooldown");
+        List<String> lore = new ArrayList<>();
+        lore.add(ChatColor.GRAY + "Current lvl: " + ChatColor.BLUE + lvl);
+        lore.add(ChatColor.GRAY + "Reduces time between collections");
+        String nextPath = "shop.cooldown.levels." + (lvl + 1);
+        if (plugin.getConfig().isConfigurationSection(nextPath)) {
+            int cost = plugin.getConfig().getInt(nextPath + ".cost", -1);
+            lore.add(ChatColor.GRAY + "Next: lvl " + ChatColor.BLUE + (lvl + 1));
+            lore.add("");
+            if (data.hasMoney(cost)) {
+                lore.add(ChatColor.GREEN + "Cost: $" + cost);
+            } else {
+                lore.add(ChatColor.RED + "Cost: $" + cost);
+            }
+        } else {
+            lore.add(ChatColor.GRAY + "Max level reached!");
+        }
+        meta.setLore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+
     private ItemStack speedItem(PlayerData data) {
         int lvl = data.getSpeedLevel();
         ItemStack item = new ItemStack(Material.SUGAR);
@@ -127,9 +181,10 @@ public class ShopGui {
         String nextPath = "shop.magnet.levels." + (lvl + 1);
         if (plugin.getConfig().isConfigurationSection(nextPath)) {
             int cost = plugin.getConfig().getInt(nextPath + ".cost", -1);
+            lore.add(ChatColor.GRAY + "Auto-collects nearby garbage every "
+                    + plugin.getConfig().getInt(nextPath + ".cooldownSeconds", 60) + "s");
             lore.add(ChatColor.GRAY + "Next: lvl " + ChatColor.DARK_PURPLE + (lvl + 1)
-                    + ChatColor.GRAY + " (radius " + plugin.getConfig().getInt(nextPath + ".radius", 3) + ", pull every "
-                    + plugin.getConfig().getInt(nextPath + ".pullIntervalSeconds", 3) + "s)");
+                    + ChatColor.GRAY + " (radius " + plugin.getConfig().getInt(nextPath + ".radius", 3) + ")");
             lore.add("");
             if (data.hasMoney(cost)) {
                 lore.add(ChatColor.GREEN + "Cost: $" + cost);
@@ -170,6 +225,50 @@ public class ShopGui {
                 Sfx.play(plugin, p, "shop", Sound.BLOCK_ANVIL_USE, 0.7f, 1.0f);
             } else {
                 p.sendMessage(ChatColor.RED + "Not enough money! You need $" + cost);
+                Sfx.play(plugin, p, "shopFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.8f);
+            }
+        } else if (clicked.getType() == Material.FEATHER) {
+            if (!plugin.getConfig().getBoolean("shop.quickHands.enabled", true)) return;
+            int lvl = data.getPickupLevel();
+            String nextPath = "shop.quickHands.levels." + (lvl + 1);
+            if (!plugin.getConfig().isConfigurationSection(nextPath)) {
+                p.sendMessage(ChatColor.RED + "Max Quick Hands level reached!");
+                Sfx.play(plugin, p, "shopFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.8f);
+                return;
+            }
+            int cost = plugin.getConfig().getInt(nextPath + ".cost", -1);
+            if (cost >= 0 && data.spend(cost)) {
+                data.setPickupLevel(lvl + 1);
+                p.sendMessage(ChatColor.YELLOW + "Quick Hands upgraded to lvl " + (lvl + 1) + " for $" + cost);
+                Sfx.play(plugin, p, "shop", Sound.BLOCK_ANVIL_USE, 0.7f, 1.0f);
+            } else if (cost < 0) {
+                data.setPickupLevel(lvl + 1);
+                p.sendMessage(ChatColor.YELLOW + "Quick Hands upgraded to lvl " + (lvl + 1) + "!");
+                Sfx.play(plugin, p, "shop", Sound.BLOCK_ANVIL_USE, 0.7f, 1.0f);
+            } else {
+                p.sendMessage(ChatColor.RED + "Not enough money!");
+                Sfx.play(plugin, p, "shopFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.8f);
+            }
+        } else if (clicked.getType() == Material.CLOCK) {
+            if (!plugin.getConfig().getBoolean("shop.cooldown.enabled", true)) return;
+            int lvl = data.getCooldownLevel();
+            String nextPath = "shop.cooldown.levels." + (lvl + 1);
+            if (!plugin.getConfig().isConfigurationSection(nextPath)) {
+                p.sendMessage(ChatColor.RED + "Max Cooldown level reached!");
+                Sfx.play(plugin, p, "shopFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.8f);
+                return;
+            }
+            int cost = plugin.getConfig().getInt(nextPath + ".cost", -1);
+            if (cost >= 0 && data.spend(cost)) {
+                data.setCooldownLevel(lvl + 1);
+                p.sendMessage(ChatColor.BLUE + "Cooldown upgraded to lvl " + (lvl + 1) + " for $" + cost);
+                Sfx.play(plugin, p, "shop", Sound.BLOCK_ANVIL_USE, 0.7f, 1.0f);
+            } else if (cost < 0) {
+                data.setCooldownLevel(lvl + 1);
+                p.sendMessage(ChatColor.BLUE + "Cooldown upgraded to lvl " + (lvl + 1) + "!");
+                Sfx.play(plugin, p, "shop", Sound.BLOCK_ANVIL_USE, 0.7f, 1.0f);
+            } else {
+                p.sendMessage(ChatColor.RED + "Not enough money!");
                 Sfx.play(plugin, p, "shopFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.8f);
             }
         } else if (clicked.getType() == Material.EXPERIENCE_BOTTLE) {

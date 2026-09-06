@@ -118,6 +118,7 @@ public class AdminCommands implements CommandExecutor {
             sender.sendMessage("Bag: " + data.totalGarbage() + " items worth $" + data.totalGarbageValue());
             sender.sendMessage("Tier: " + data.getCollectorTier() + "  Luck: " + data.getGarbageLuck()
                     + "  Speed lvl: " + data.getSpeedLevel() + "  Magnet lvl: " + data.getMagnetLevel());
+            sender.sendMessage("Quick Hands lvl: " + data.getPickupLevel() + "  Cooldown lvl: " + data.getCooldownLevel());
             sender.sendMessage("Garbage counts: " + data.getGarbageCount());
             return true;
         }
