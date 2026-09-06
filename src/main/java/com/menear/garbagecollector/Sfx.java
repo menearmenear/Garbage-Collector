@@ -6,6 +6,8 @@ import org.bukkit.Registry;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 
+import java.util.Locale;
+
 /**
  * Config-driven sound helper.
  *
@@ -49,8 +51,11 @@ public final class Sfx {
     private static Sound soundOf(GarbageCollectorPlugin plugin, String event, Sound fallback) {
         String cfg = plugin.getConfig().getString("sounds.events." + event + ".sound");
         if (cfg == null || cfg.isBlank()) return fallback;
+        try {
+            return Sound.valueOf(cfg.trim().toUpperCase(Locale.ROOT).replace(' ', '_'));
+        } catch (IllegalArgumentException ignored) { }
         Sound resolved = Registry.SOUNDS.get(NamespacedKey.minecraft(
-                cfg.toLowerCase().replace(" ", "_")));
+                cfg.trim().toLowerCase(Locale.ROOT).replace(' ', '_')));
         if (resolved == null) {
             plugin.getLogger().warning("Unknown sound in config for " + event + ": " + cfg);
             return fallback;
