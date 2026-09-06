@@ -125,18 +125,19 @@ public class ZoneService {
             return false;
         }
         int price = cost(id);
-        if (data.hasMoney(price)) {
-            if (price > 0) data.spend(price);
-            data.unlockZone(id);
-            data.setActiveZone(id);
-            player.sendMessage(ChatColor.GREEN + "Now collecting in: " + displayName(id).replace("&", "\u00A7"));
-            Sfx.play(plugin, player, "shop", Sound.BLOCK_ANVIL_USE, 0.7f, 1.0f);
-            plugin.getScoreboardManager().updateForPlayer(player, data);
-            plugin.getStatusBarManager().updateForPlayer(player, data);
-            return true;
+        boolean already = data.hasZone(id);
+        if (!already && !data.hasMoney(price)) {
+            player.sendActionBar(ChatColor.RED + "Not enough money! You need $" + price);
+            Sfx.play(plugin, player, "shopFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.8f);
+            return false;
         }
-        player.sendActionBar(ChatColor.RED + "Not enough money! You need $" + price);
-        Sfx.play(plugin, player, "shopFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.8f);
-        return false;
+        if (!already && price > 0) data.spend(price);
+        data.unlockZone(id);
+        data.setActiveZone(id);
+        player.sendMessage(ChatColor.GREEN + "Now collecting in: " + displayName(id).replace("&", "\u00A7"));
+        Sfx.play(plugin, player, "shop", Sound.BLOCK_ANVIL_USE, 0.7f, 1.0f);
+        plugin.getScoreboardManager().updateForPlayer(player, data);
+        plugin.getStatusBarManager().updateForPlayer(player, data);
+        return true;
     }
 }

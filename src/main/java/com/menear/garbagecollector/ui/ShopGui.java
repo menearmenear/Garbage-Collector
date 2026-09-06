@@ -44,6 +44,11 @@ public class ShopGui {
         return ChatColor.translateAlternateColorCodes('&', "&8Shop - Powerups");
     }
 
+    public static boolean isShopView(String title) {
+        return title.equals(title()) || title.equals(upgradesTitle()) || title.equals(backpacksTitle())
+                || title.equals(toolsTitle()) || title.equals(powerupsTitle());
+    }
+
     public void open(Player p) {
         PlayerData data = plugin.getPlayerService().getPlayerData(p.getUniqueId());
         Inventory inv = Bukkit.createInventory(null, 45, title());
@@ -334,7 +339,7 @@ public class ShopGui {
     }
 
     private ItemStack backpackItem(PlayerData data, int lvl) {
-        String p = "backpack.levels." + lvl;
+        String p = "backpacks.levels." + lvl;
         int current = data.getBackpackLevel();
         boolean owned = lvl <= current;
         boolean next = lvl == current + 1;
@@ -556,7 +561,7 @@ public class ShopGui {
             return;
         }
         int next = data.getBackpackLevel() + 1;
-        String p2 = "backpack.levels." + next;
+        String p2 = "backpacks.levels." + next;
         if (!plugin.getConfig().isConfigurationSection(p2)) {
             p.sendMessage(ChatColor.RED + "Max backpack reached!");
             return;

@@ -595,7 +595,7 @@ public class BasicGarbageService implements GarbageService {
             Sfx.play(plugin, player, "collectFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.5f);
             return;
         }
-        if (data.getCollected() >= Stats.capacity(plugin, data)) {
+        if (data.totalGarbage() >= Stats.capacity(plugin, data)) {
             player.sendActionBar(ChatColor.RED + "Bag full! Sell your haul with /sell");
             Sfx.play(plugin, player, "collectFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.5f);
             return;
@@ -692,7 +692,7 @@ public class BasicGarbageService implements GarbageService {
             Sfx.play(plugin, player, "collectFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.5f);
             return CollectionResult.fail("no power");
         }
-        if (data.getCollected() >= Stats.capacity(plugin, data)) {
+        if (data.totalGarbage() >= Stats.capacity(plugin, data)) {
             player.sendActionBar(ChatColor.RED + "Bag full! Sell your haul with /sell");
             Sfx.play(plugin, player, "collectFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.5f);
             return CollectionResult.fail("bag full");
@@ -761,7 +761,7 @@ public class BasicGarbageService implements GarbageService {
 
         StringBuilder msg = new StringBuilder();
         msg.append(colorize("+" + value + "$ " + garbage.typeName, garbage.colorHex));
-        msg.append(ChatColor.GRAY).append("  |  ").append(ChatColor.GREEN).append("Bag: ").append(data.getCollected())
+        msg.append(ChatColor.GRAY).append("  |  ").append(ChatColor.GREEN).append("Bag: ").append(data.totalGarbage())
                 .append('/').append(Stats.capacity(plugin, data));
         msg.append(ChatColor.GRAY).append(" | ").append(ChatColor.YELLOW).append("Luck: ").append(luckGained ? data.getGarbageLuck() + " (+1)" : Integer.toString(data.getGarbageLuck()));
         if (mythic) msg.append(ChatColor.LIGHT_PURPLE).append(" | MYTHIC!");

@@ -45,7 +45,8 @@ public class AchievementService {
             case "earnTotal" -> data.getTotalEarned() >= target;
             case "killTotal" -> data.mobKillsTotal() >= target;
             case "mythicFound" -> data.getMythicFound() >= target;
-            case "collectType" -> data.getGarbage(plugin.getConfig().getString(p + ".targetType", "")) >= target;
+            case "collectType" -> data.getCollectionGarbage().getOrDefault(
+                    plugin.getConfig().getString(p + ".targetType", ""), 0) >= target;
             case "killMonster" -> data.getMobKillsById(plugin.getConfig().getString(p + ".monster", "")) >= target;
             default -> false;
         };

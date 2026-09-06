@@ -5,13 +5,16 @@ import com.menear.garbagecollector.PlayerData;
 import com.menear.garbagecollector.Sfx;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,6 +51,7 @@ public class SellGui {
             lore.add(ChatColor.GRAY + "Bag value: " + ChatColor.GREEN + "$" + data.getGarbageValue(type));
             lore.add(ChatColor.GRAY + "Click to sell this type");
             meta.setLore(lore);
+            meta.getPersistentDataContainer().set(new NamespacedKey(plugin, "sell-type"), PersistentDataType.STRING, type);
             item.setItemMeta(meta);
             inv.setItem(slot++, item);
         }
@@ -100,7 +104,28 @@ public class SellGui {
             return;
         }
 
-        // individual type: find matching item
+        // individual type: prefer the PDC tag so two types sharing a material sell the right one
+        if (clicked.hasItemMeta()) {
+            String sellType = clicked.getItemMeta().getPersistentDataContainer()
+                    .get(new NamespacedKey(plugin, "sell-type"), PersistentDataType.STRING);
+            if (sellType != null) {
+                int count = data.getGarbageCount().getOrDefault(sellType, 0);
+                if (count > 0) {
+                    int earn = data.getGarbageValue(sellType);
+                    data.addMoney(earn);
+                    data.addTotalEarned(earn);
+                    data.clearGarbageType(sellType);
+                    p.sendMessage(ChatColor.GREEN + "Sold " + count + " " + sellType + " for $" + earn);
+                    Sfx.play(plugin, p, "sell", Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.0f);
+                    rollBonusDrop(p, data);
+                    p.closeInventory();
+                    plugin.getScoreboardManager().updateForPlayer(p, data);
+                    plugin.getStatusBarManager().updateForPlayer(p, data);
+                    return;
+                }
+            }
+        }
+        // fallback: match by material (legacy views without the tag)
         for (Map.Entry<String, Integer> e : data.getGarbageCount().entrySet()) {
             if (e.getValue() <= 0) continue;
             Material mat = safeMaterial(plugin.getConfig().getString("garbage.types." + e.getKey() + ".material", "PAPER"), Material.PAPER);
@@ -130,12 +155,23 @@ public class SellGui {
         }
         double luckBonus = data.getGarbageLuck() * plugin.getConfig().getDouble("mob.luckDropChanceBonusPerPoint", 0.01);
         for (Map<?, ?> entry : list) {
-            double chance = ((Number) entry.get("chance")).doubleValue();
+            Object chanceRaw = entry.get("chance");
+            if (chanceRaw == null) continue;
+            double chance;
+            try {
+                chance = Double.parseDouble(chanceRaw.toString());
+            } catch (Exception e) {
+                continue;
+            }
             if (random.nextDouble() < Math.min(1.0, chance + luckBonus)) {
-                Material mat = safeMaterial(entry.get("material").toString(), Material.DIAMOND);
-                int[] minmax = parseAmount(entry.get("amount").toString());
+                Object matRaw = entry.get("material");
+                Object amtRaw = entry.get("amount");
+                Material mat = matRaw != null ? safeMaterial(matRaw.toString(), Material.DIAMOND) : Material.DIAMOND;
+                int[] minmax = amtRaw != null ? parseAmount(amtRaw.toString()) : new int[] { 1, 1 };
                 int amount = minmax[1] <= minmax[0] ? minmax[0] : minmax[0] + random.nextInt(minmax[1] - minmax[0] + 1);
-                p.getInventory().addItem(new ItemStack(mat, Math.max(1, amount)));
+                Location drop = p.getLocation();
+                p.getInventory().addItem(new ItemStack(mat, Math.max(1, amount))).values()
+                        .forEach(extra -> drop.getWorld().dropItemNaturally(drop, extra));
                 p.sendMessage(ChatColor.LIGHT_PURPLE + "Bonus loot! You found " + mat.name());
                 Sfx.play(plugin, p, "bonusLoot", Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);
                 return;

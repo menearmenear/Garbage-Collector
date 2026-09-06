@@ -6,12 +6,14 @@ import com.menear.garbagecollector.Sfx;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -69,6 +71,7 @@ public class RecycleGui {
         lore.add("");
         lore.add(ChatColor.GRAY + "Click to convert into materials");
         meta.setLore(lore);
+        meta.getPersistentDataContainer().set(new NamespacedKey(plugin, "recycle-type"), PersistentDataType.STRING, type);
         item.setItemMeta(meta);
         return item;
     }
@@ -81,7 +84,7 @@ public class RecycleGui {
         if (clicked == null || !clicked.hasItemMeta()) return;
 
         PlayerData data = plugin.getPlayerService().getPlayerData(p.getUniqueId());
-        String type = clicked.getType() == Material.PAPER ? null : recycleTypeFor(clicked);
+        String type = recycleTypeFor(clicked);
         if (type == null) return;
 
         int times = plugin.getRecycleService().convert(data, type);
@@ -101,6 +104,11 @@ public class RecycleGui {
     }
 
     private String recycleTypeFor(ItemStack clicked) {
+        if (clicked.hasItemMeta()) {
+            String tagged = clicked.getItemMeta().getPersistentDataContainer()
+                    .get(new NamespacedKey(plugin, "recycle-type"), PersistentDataType.STRING);
+            if (tagged != null) return tagged;
+        }
         String name = ChatColor.stripColor(clicked.getItemMeta().getDisplayName()).toLowerCase();
         for (String type : plugin.getRecycleService().typeKeys()) {
             if (plugin.getRecycleService().displayName(type).toLowerCase().equals(name)
@@ -112,6 +120,8 @@ public class RecycleGui {
     }
 
     private Material safeMaterial(String name, Material fallback) {
-        try { return Material.valueOf(name.toUpperCase()); } catch (Exception e) { return fallback; }
+        if (name == null) return fallback;
+        Material m = Material.matchMaterial(name.toUpperCase().replace(" ", "_"));
+        return m != null ? m : fallback;
     }
 }

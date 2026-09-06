@@ -71,16 +71,15 @@ public class PlayerListeners implements Listener {
         event.getDrops().clear();
         event.setDroppedExp(0);
 
-        String required = plugin.getConfig().getString("tool.material", "STICK");
-        boolean hasTool = killer != null
-                && killer.getInventory().getItemInMainHand().getType() == Material.valueOf(required.toUpperCase());
+        boolean requiresTool = plugin.getConfig().getBoolean("tool.requireTool", true);
+        boolean hasTool = killer != null && isGrabber(killer.getInventory().getItemInMainHand());
 
-        if (killer != null && !hasTool) {
+        if (killer != null && requiresTool && !hasTool) {
             killer.sendActionBar("\u00A7cYou need the "
                     + plugin.getConfig().getString("tool.name", "&6Trash Grabber").replace("&", "\u00A7")
                     + " to loot trash monsters!");
         }
-        garbageService.handleMobKilled(hasTool ? killer : null, garbage);
+        garbageService.handleMobKilled(!requiresTool || hasTool ? killer : null, garbage);
     }
 
     @EventHandler
@@ -91,8 +90,11 @@ public class PlayerListeners implements Listener {
         plugin.getMissionService().refresh(data);
         // give the collector tool once (first join)
         if (!hasAnyTool(p)) {
-            p.getInventory().addItem(CollectorItem.build(plugin, data));
+            ItemStack tool = CollectorItem.build(plugin, data);
+            p.getInventory().addItem(tool).values().forEach(left ->
+                    p.getWorld().dropItemNaturally(p.getLocation(), left));
         }
+
         plugin.getScoreboardManager().addPlayer(p, data);
         plugin.getScoreboardManager().updateForPlayer(p, data);
         plugin.getStatusBarManager().updateForPlayer(p, data);
@@ -101,12 +103,20 @@ public class PlayerListeners implements Listener {
 
     private boolean hasAnyTool(Player p) {
         for (ItemStack item : p.getInventory().getContents()) {
-            if (item != null && item.getType() == Material.valueOf(
-                    plugin.getConfig().getString("tool.material", "STICK"))) {
+            if (item != null && item.getType() == toolMaterial()) {
                 return true;
             }
         }
         return false;
+    }
+
+    private boolean isGrabber(ItemStack item) {
+        return item != null && item.getType() == toolMaterial();
+    }
+
+    private Material toolMaterial() {
+        Material m = Material.matchMaterial(plugin.getConfig().getString("tool.material", "STICK"));
+        return m != null ? m : Material.STICK;
     }
 
     @EventHandler
