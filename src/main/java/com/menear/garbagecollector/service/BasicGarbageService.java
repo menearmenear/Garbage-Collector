@@ -31,6 +31,7 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -42,6 +43,8 @@ public class BasicGarbageService implements GarbageService {
     private final Random random = new Random();
     private final NamespacedKey garbageKey;
     private final Map<UUID, ActiveGarbage> garbages = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> collectCooldowns = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> magnetCooldowns = new ConcurrentHashMap<>();
     private final List<Rarity> rarities = new ArrayList<>();
 
     private static final class Rarity {
@@ -91,6 +94,12 @@ public class BasicGarbageService implements GarbageService {
     }
 
     @Override
+    public void reload() {
+        reloadRarities();
+        plugin.getLogger().info("Garbage service reloaded (rarities re-read from config).");
+    }
+
+    @Override
     public void start() {
         reloadRarities();
         int interval = Math.max(1, plugin.getConfig().getInt("spawn.intervalSeconds", 10));
@@ -98,6 +107,9 @@ public class BasicGarbageService implements GarbageService {
         int glowTick = 4;
         Bukkit.getScheduler().runTaskTimer(plugin, this::updateGlow, 20L, glowTick);
         Bukkit.getScheduler().runTaskTimer(plugin, this::despawnExpired, 60L, 40L);
+        if (plugin.getConfig().getBoolean("shop.magnet.enabled", true)) {
+            Bukkit.getScheduler().runTaskTimer(plugin, this::magnetTick, 20L, 10L);
+        }
     }
 
     // -------------------------------------------------------------
@@ -395,6 +407,13 @@ public class BasicGarbageService implements GarbageService {
             Sfx.play(plugin, player, "collectFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.5f);
             return CollectionResult.fail("bag full");
         }
+        long cooldownMs = plugin.getConfig().getLong("collect.cooldownMillis", 700);
+        if (cooldownMs > 0) {
+            Long last = collectCooldowns.get(player.getUniqueId());
+            if (last != null && System.currentTimeMillis() - last < cooldownMs) {
+                return CollectionResult.fail("cooldown");
+            }
+        }
 
         // luck bonus
         int luck = data.getGarbageLuck();
@@ -404,11 +423,11 @@ public class BasicGarbageService implements GarbageService {
                 : 1.0;
 
         int value = Math.max(1, (int) Math.round(garbage.baseValue * garbage.rarityMult * tierMult * moneyMult));
-        data.addMoney(value);
-        data.addTotalEarned(value);
+        data.addGarbageValue(garbage.typeName, value);
         data.addGarbage(garbage.typeName, 1);
         data.addCollectionGarbage(garbage.typeName, 1);
         data.addCollected(1);
+        collectCooldowns.put(player.getUniqueId(), System.currentTimeMillis());
 
         int xp = Math.max(1, (int) Math.round(garbage.rarityXp * (1 + luck * plugin.getConfig().getDouble("luck.xpBonusPerPoint", 0.03))));
         player.giveExpLevels(xp);
@@ -427,7 +446,7 @@ public class BasicGarbageService implements GarbageService {
 
         StringBuilder msg = new StringBuilder();
         msg.append(colorize("+" + value + "$ " + garbage.typeName, garbage.colorHex));
-        msg.append(ChatColor.GRAY).append("  |  ").append(ChatColor.GREEN).append("Collected: ").append(data.getCollected())
+        msg.append(ChatColor.GRAY).append("  |  ").append(ChatColor.GREEN).append("Bag: ").append(data.getCollected())
                 .append('/').append(collectorBagCapacity(data));
         msg.append(ChatColor.GRAY).append(" | ").append(ChatColor.YELLOW).append("Luck: ").append(luckGained ? data.getGarbageLuck() + " (+1)" : Integer.toString(data.getGarbageLuck()));
         player.sendActionBar(msg.toString());
@@ -532,6 +551,52 @@ public class BasicGarbageService implements GarbageService {
                 g.remove();
             }
         }
+    }
+
+    // -------------------------------------------------------------
+    // Magnet (auto-collect aura)
+    // -------------------------------------------------------------
+    private void magnetTick() {
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            if (p.isDead() || !p.isOnline()) continue;
+            PlayerData data = plugin.getPlayerService().getPlayerData(p.getUniqueId());
+            int level = data.getMagnetLevel();
+            if (level <= 0) continue;
+            String lvlPath = "shop.magnet.levels." + level;
+            double radius = plugin.getConfig().getDouble(lvlPath + ".radius", 3);
+            int intervalMs = Math.max(1, plugin.getConfig().getInt(lvlPath + ".pullIntervalSeconds", 3)) * 1000;
+
+            Long last = magnetCooldowns.get(p.getUniqueId());
+            if (last != null && System.currentTimeMillis() - last < intervalMs) continue;
+
+            ActiveGarbage nearest = nearestItem(p, radius);
+            if (nearest == null) continue;
+            magnetCooldowns.put(p.getUniqueId(), System.currentTimeMillis());
+            collect(p, nearest);
+            Sfx.play(plugin, p, "magnet", Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.4f);
+            if (plugin.getConfig().getBoolean("effects.particles", true)) {
+                p.getWorld().spawnParticle(Particle.END_ROD, p.getLocation().clone().add(0, 1, 0),
+                        6, 0.3, 0.5, 0.3, 0.02);
+            }
+        }
+    }
+
+    private ActiveGarbage nearestItem(Player p, double radius) {
+        ActiveGarbage best = null;
+        double bestDist = Double.MAX_VALUE;
+        double r2 = radius * radius;
+        for (ActiveGarbage g : garbages.values()) {
+            if (!g.isItem()) continue;
+            Entity target = g.raycastTarget();
+            if (target == null || !target.isValid()) continue;
+            if (target.getLocation().getWorld() != p.getWorld()) continue;
+            double d = target.getLocation().distanceSquared(p.getLocation());
+            if (d <= r2 && d < bestDist) {
+                best = g;
+                bestDist = d;
+            }
+        }
+        return best;
     }
 
     // -------------------------------------------------------------

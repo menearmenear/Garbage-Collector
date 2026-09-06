@@ -16,7 +16,9 @@ public class PlayerData {
     private int collectorTier = 1;
     private int garbageLuck;
     private int speedLevel = 1;
+    private int magnetLevel;
     private final Map<String, Integer> garbageCount = new HashMap<>();
+    private final Map<String, Integer> garbageValue = new HashMap<>();
     private final Map<String, Integer> collectionGarbage = new HashMap<>();
     private final Map<String, Map<Integer, Integer>> collectionMobs = new HashMap<>();
     private int mobKillsTotal;
@@ -38,9 +40,14 @@ public class PlayerData {
             data.collectorTier = Math.max(1, cfg.getInt("collectorTier", 1));
             data.garbageLuck = cfg.getInt("garbageLuck", 0);
             data.speedLevel = Math.max(1, cfg.getInt("speedLevel", 1));
+            data.magnetLevel = Math.max(0, cfg.getInt("magnetLevel", 0));
             if (cfg.isConfigurationSection("garbageCount")) {
                 cfg.getConfigurationSection("garbageCount").getKeys(false).forEach(k ->
                         data.garbageCount.put(k, cfg.getInt("garbageCount." + k, 0)));
+            }
+            if (cfg.isConfigurationSection("garbageValue")) {
+                cfg.getConfigurationSection("garbageValue").getKeys(false).forEach(k ->
+                        data.garbageValue.put(k, cfg.getInt("garbageValue." + k, 0)));
             }
             if (cfg.isConfigurationSection("collection.garbage")) {
                 cfg.getConfigurationSection("collection.garbage").getKeys(false).forEach(k ->
@@ -68,9 +75,12 @@ public class PlayerData {
         cfg.set("collectorTier", collectorTier);
         cfg.set("garbageLuck", garbageLuck);
         cfg.set("speedLevel", speedLevel);
+        cfg.set("magnetLevel", magnetLevel);
         cfg.set("garbageCount.data", null);
         String base = "garbageCount.";
         garbageCount.forEach((k, v) -> cfg.set(base + k, v));
+        cfg.set("garbageValue", null);
+        garbageValue.forEach((k, v) -> cfg.set("garbageValue." + k, v));
         cfg.set("collection.garbage", null);
         collectionGarbage.forEach((k, v) -> cfg.set("collection.garbage." + k, v));
         cfg.set("collection.mobs", null);
@@ -112,8 +122,23 @@ public class PlayerData {
     public int getSpeedLevel() { return speedLevel; }
     public void setSpeedLevel(int speedLevel) { this.speedLevel = Math.max(1, speedLevel); }
 
+    public int getMagnetLevel() { return magnetLevel; }
+    public void setMagnetLevel(int magnetLevel) { this.magnetLevel = Math.max(0, magnetLevel); }
+
     public void addGarbage(String type, int n) {
         garbageCount.merge(type, n, Integer::sum);
+    }
+
+    public void addGarbageValue(String type, int value) {
+        garbageValue.merge(type, value, Integer::sum);
+    }
+
+    public int getGarbageValue(String type) { return garbageValue.getOrDefault(type, 0); }
+
+    public Map<String, Integer> getGarbageValueAll() { return new HashMap<>(garbageValue); }
+
+    public int totalGarbageValue() {
+        return garbageValue.values().stream().mapToInt(Integer::intValue).sum();
     }
 
     public int getGarbage(String type) { return garbageCount.getOrDefault(type, 0); }
@@ -122,11 +147,15 @@ public class PlayerData {
 
     public int totalGarbage() { return garbageCount.values().stream().mapToInt(Integer::intValue).sum(); }
 
-    public void setGarbage(String type, int value) {
-        garbageCount.put(type, value);
+    public void clearGarbage() {
+        garbageCount.clear();
+        garbageValue.clear();
     }
 
-    public void clearGarbage() { garbageCount.clear(); }
+    public void clearGarbageType(String type) {
+        garbageCount.put(type, 0);
+        garbageValue.put(type, 0);
+    }
 
     // ---- Collection (lifetime) tracking ----
     public void addCollectionGarbage(String type, int n) {

@@ -31,9 +31,12 @@ public class ShopGui {
         PlayerData data = plugin.getPlayerService().getPlayerData(p.getUniqueId());
         Inventory inv = Bukkit.createInventory(null, 27, title());
 
-        inv.setItem(11, tierItem(data));
-        inv.setItem(13, luckItem(data));
-        inv.setItem(15, speedItem(data));
+        inv.setItem(10, tierItem(data));
+        inv.setItem(12, luckItem(data));
+        inv.setItem(14, speedItem(data));
+        if (plugin.getConfig().getBoolean("shop.magnet.enabled", true)) {
+            inv.setItem(16, magnetItem(data));
+        }
 
         p.openInventory(inv);
         Sfx.play(plugin, p, "guiOpen", Sound.BLOCK_CHEST_OPEN, 0.6f, 1.2f);
@@ -113,6 +116,34 @@ public class ShopGui {
         return item;
     }
 
+    private ItemStack magnetItem(PlayerData data) {
+        int lvl = data.getMagnetLevel();
+        ItemStack item = new ItemStack(Material.COMPASS);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(ChatColor.DARK_PURPLE + "Magnet Aura");
+        List<String> lore = new ArrayList<>();
+        lore.add(ChatColor.GRAY + "Auto-collects nearby garbage");
+        lore.add(ChatColor.GRAY + "Current lvl: " + ChatColor.DARK_PURPLE + lvl);
+        String nextPath = "shop.magnet.levels." + (lvl + 1);
+        if (plugin.getConfig().isConfigurationSection(nextPath)) {
+            int cost = plugin.getConfig().getInt(nextPath + ".cost", -1);
+            lore.add(ChatColor.GRAY + "Next: lvl " + ChatColor.DARK_PURPLE + (lvl + 1)
+                    + ChatColor.GRAY + " (radius " + plugin.getConfig().getInt(nextPath + ".radius", 3) + ", pull every "
+                    + plugin.getConfig().getInt(nextPath + ".pullIntervalSeconds", 3) + "s)");
+            lore.add("");
+            if (data.hasMoney(cost)) {
+                lore.add(ChatColor.GREEN + "Cost: $" + cost);
+            } else {
+                lore.add(ChatColor.RED + "Cost: $" + cost);
+            }
+        } else {
+            lore.add(ChatColor.GRAY + "Max magnet reached!");
+        }
+        meta.setLore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+
     public void onClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player p)) return;
         if (!event.getView().getTitle().equals(title())) return;
@@ -177,6 +208,28 @@ public class ShopGui {
                 data.setSpeedLevel(lvl + 1);
                 applySpeed(p, data);
                 p.sendMessage(ChatColor.AQUA + "Speed upgraded to lvl " + (lvl + 1) + "!");
+            } else {
+                p.sendMessage(ChatColor.RED + "Not enough money!");
+                Sfx.play(plugin, p, "shopFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.8f);
+            }
+        } else if (clicked.getType() == Material.COMPASS) {
+            if (!plugin.getConfig().getBoolean("shop.magnet.enabled", true)) return;
+            int lvl = data.getMagnetLevel();
+            String nextPath = "shop.magnet.levels." + (lvl + 1);
+            if (!plugin.getConfig().isConfigurationSection(nextPath)) {
+                p.sendMessage(ChatColor.RED + "Max magnet level reached!");
+                Sfx.play(plugin, p, "shopFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.8f);
+                return;
+            }
+            int cost = plugin.getConfig().getInt(nextPath + ".cost", -1);
+            if (cost >= 0 && data.spend(cost)) {
+                data.setMagnetLevel(lvl + 1);
+                p.sendMessage(ChatColor.DARK_PURPLE + "Magnet upgraded to lvl " + (lvl + 1) + " for $" + cost);
+                Sfx.play(plugin, p, "shop", Sound.BLOCK_ANVIL_USE, 0.7f, 1.0f);
+            } else if (cost < 0) {
+                data.setMagnetLevel(lvl + 1);
+                p.sendMessage(ChatColor.DARK_PURPLE + "Magnet upgraded to lvl " + (lvl + 1) + "!");
+                Sfx.play(plugin, p, "shop", Sound.BLOCK_ANVIL_USE, 0.7f, 1.0f);
             } else {
                 p.sendMessage(ChatColor.RED + "Not enough money!");
                 Sfx.play(plugin, p, "shopFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.8f);

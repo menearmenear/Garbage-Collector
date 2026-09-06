@@ -18,4 +18,5 @@ public interface GarbageService {
     void updateGlow();
     void despawnExpired();
     void updateMobName(org.bukkit.entity.LivingEntity mob, ActiveGarbage garbage, int tier, int maxTiers);
+    void reload();
 }

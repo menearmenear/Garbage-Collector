@@ -127,8 +127,16 @@ public class CollectionGui {
         if (plugin.getConfig().isConfigurationSection("mob.collectionName")) {
             names.addAll(plugin.getConfig().getConfigurationSection("mob.collectionName").getKeys(false));
         }
-        // if no config keys, use the collected ones (shows any previously tracked)
-        if (names.isEmpty()) names.addAll(mobs.keySet());
+        if (names.isEmpty()) {
+            String defaultName = ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&',
+                    plugin.getConfig().getString("mob.name", "&cTrash Monster")));
+            names.add(defaultName);
+        }
+        // always include any previously-collected mob types so data is never hidden
+        for (String n : mobs.keySet()) {
+            if (!names.contains(n)) names.add(n);
+        }
+        int maxTier = Math.max(1, plugin.getConfig().getInt("mob.maxTier", 5));
         for (String name : names) {
             Material mat = safeMaterial(plugin.getConfig().getString("mob.collectionName." + name + ".material", "IRON_SWORD"), Material.IRON_SWORD);
             int total = mobs.getOrDefault(name, Map.of()).values().stream().mapToInt(Integer::intValue).sum();
@@ -137,14 +145,15 @@ public class CollectionGui {
             meta.setDisplayName(ChatColor.RED + name + " " + ChatColor.GRAY + "(" + total + ")");
             List<String> lore = new ArrayList<>();
             Map<Integer, Integer> tiers = mobs.get(name);
-            if (tiers != null && !tiers.isEmpty()) {
-                tiers.entrySet().stream()
-                        .sorted(Comparator.comparingInt(Map.Entry::getKey))
-                        .forEach(e -> lore.add(ChatColor.GRAY + "Tier " + romanNumeral(e.getKey())
-                                + ": " + ChatColor.GOLD + e.getValue()));
-            } else {
-                lore.add(ChatColor.GRAY + "Not yet discovered");
+            if (tiers == null || tiers.isEmpty()) {
+                tiers = new java.util.HashMap<>();
+                for (int t = 1; t <= maxTier; t++) tiers.put(t, 0);
             }
+            tiers.entrySet().stream()
+                    .sorted(Comparator.comparingInt(Map.Entry::getKey))
+                    .forEach(e -> lore.add(ChatColor.GRAY + "Tier " + romanNumeral(e.getKey())
+                            + ": " + (e.getValue() > 0 ? ChatColor.GOLD + Integer.toString(e.getValue())
+                            : ChatColor.DARK_GRAY + "not discovered")));
             lore.add(ChatColor.GRAY + "Total kills: " + ChatColor.GOLD + total);
             meta.setLore(lore);
             item.setItemMeta(meta);

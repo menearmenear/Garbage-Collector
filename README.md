@@ -11,10 +11,12 @@ Built for **Paper 1.20.4+** (API 26.2) running on **Java 25**.
 - **Collect garbage** — right-click anything you find with your *Trash Grabber* to collect it. Each piece has a **value** and a **rarity**:
   - `Common` (White) · `Rare` (Cyan) · `Epic` (Magenta) · `Legendary` (Gold)
   - Rarer garbage is worth much more and gives bonus XP.
+- **Bag economy** — collecting fills your **bag** (rarity/tier-scaled value). `/sell` converts the bag into real money — one payout per piece, no double-dipping.
 - **Garbage spawns naturally** — items and mobs spawn every few seconds either near players or around world spawn (mode configurable).
-- **Trash Monster mobs** — zombies wearing garbage as a helmet. They spawn with a **tier (I–V)** that scales their health and loot, show a **live health bar of hearts** above their head (♥♥♥❤❤ 18/20), and drop bonus loot scaled by your Luck.
-- **Scaled value** — your **Collector tier** raises how much each piece is worth and your **bag capacity**.
+- **Trash Monster mobs** — zombies wearing garbage as a helmet. They spawn with a **tier (I–V)** that scales their health and loot, show a **live health bar of hearts** above their head (♥♥♥♥♥♥❤❤❤❤ 13/20), and drop bonus loot scaled by your Luck.
+- **Scaled value** — your **Collector tier** raises how much each piece is worth in your bag and your **bag capacity**.
 - **Luck stat** — every purchase/collect can raise your Luck, which boosts money, XP, mob drops, and sell bonus-loot rolls.
+- **Magnet aura** — a permanent `/shop` upgrade that automatically pulls the nearest garbage into your bag while you're online (radius + pull speed scale with level).
 - **Shops & menus** (Hypixel-style, with sounds):
   - `/sell` — sell each garbage type or everything at once, with a **bonus loot roll** on every sale.
   - `/shop` — upgrade your **Collector tier**, buy **Luck**, or level up **Speed**.
@@ -105,11 +107,11 @@ Trash Monsters live on `mob.type` (default Zombie), wear a random garbage type a
 Everything is in `plugins/Garbage-Collector/config.yml`. Key sections:
 
 - `spawn` — interval, world, radius, spawn mode (`spawn` / `players` / `mixed`), mob chance, burst spread.
-- `garbage.collector` — collector tiers (value multiplier, bag capacity, cost).
+- `garbage` — `ttlSeconds`, `cooldownMillis` (anti-click-spam), collector tiers.
 - `garbage.rarities` — weights, colors, glow, XP, value multiplier.
 - `garbage.types` — name, material, base value.
 - `luck` — money/XP bonuses per point, gain-on-collect chance, max, upgrade cost.
-- `shop.speed` — walk-speed levels and costs.
+- `shop` — `speed` levels, `magnet` levels (radius + pull interval + cost).
 - `sell` — `alwaysBonusChance` + the `bonusLoot` table (material, chance, amount range).
 - `tool` — the collector item's material/name/lore.
 - `mob` — mob type/name, max tier, per-tier health/value scaling, drop table.
@@ -145,9 +147,11 @@ The build script prints a clean-step summary and copies the jar into `server/plu
 ## Roadmap
 
 - [ ] Boss-bar health for high-tier mobs
-- [ ] Rarity-bar / drop-roll animations
-- [ ] Claimable bonus chests
+- [ ] PlaceholderAPI placeholders
+- [ ] Leaderboard GUI (`/top`) for money & collected
 - [ ] Daily garbage quests
+- [ ] Legendary drop animation (beam + chest to claim)
+- [ ] Achievements / titles
 
 ---
 
