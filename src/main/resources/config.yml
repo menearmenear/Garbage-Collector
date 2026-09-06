@@ -1,0 +1,53 @@
+# Garbage Collector configuration
+# Tweak values here. All values referenced in plugin code will be read from here.
+spawn:
+  # Spawn interval in seconds for garbage objects
+  intervalSeconds: 30
+  # World name to spawn garbage in (use your server world name)
+  world: world
+  # Distance from world spawn to randomize spawns (radius)
+  spawnRadius: 20
+
+garbage:
+  # Define different garbage types: material = display material, value = money reward
+  types:
+    paper:
+      material: PAPER
+      value: 1
+    can:
+      material: IRON_NUGGET
+      value: 3
+    bottle:
+      material: GLASS_BOTTLE
+      value: 2
+
+player:
+  startingMoney: 0
+  defaultBagCapacity: 20
+  maxWater: 100
+
+water:
+  # How many water points drained per minute (1 means 1 point per minute)
+  drainPerMinute: 1
+  # Item used to refill water (vanilla material name)
+  refillItem: WATER_BUCKET
+  # Amount of water restored per refill
+  refillAmount: 100
+
+tool:
+  # Require a specific tool to collect (material name)
+  requireTool: true
+  material: STICK
+  name: "Trash Grabber"
+
+status:
+  # display: "actionbar" or "bossbar"
+  display: actionbar
+  bossbar:
+    color: BLUE
+    style: SOLID
+    maxTicksVisible: 200
+
+admin:
+  # permission node for admin commands
+  permission: garbage.admin

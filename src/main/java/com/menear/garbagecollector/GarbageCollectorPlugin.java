@@ -1,14 +1,19 @@
 package com.menear.garbagecollector;
 
-import org.bukkit.Bukkit;
+import com.menear.garbagecollector.service.BasicGarbageService;
+import com.menear.garbagecollector.service.BasicPlayerService;
+import com.menear.garbagecollector.service.GarbageService;
+import com.menear.garbagecollector.service.PlayerService;
+import com.menear.garbagecollector.ui.StatusBarManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class GarbageCollectorPlugin extends JavaPlugin {
 
     private static GarbageCollectorPlugin instance;
-    private PlayerManager playerManager;
-    private GarbageManager garbageManager;
+    private PlayerService playerService;
+    private GarbageService garbageService;
     private ConfigManager configManager;
+    private StatusBarManager statusBarManager;
 
     @Override
     public void onEnable() {
@@ -16,18 +21,24 @@ public final class GarbageCollectorPlugin extends JavaPlugin {
 
         saveDefaultConfig();
         this.configManager = new ConfigManager(this);
-        this.playerManager = new PlayerManager(this);
-        this.garbageManager = new GarbageManager(this);
+
+        // Services and managers
+        this.statusBarManager = new StatusBarManager(this);
+        this.playerService = new BasicPlayerService(this);
+        this.garbageService = new BasicGarbageService(this);
 
         // Register listeners
-        getServer().getPluginManager().registerEvents(new PlayerListeners(this), this);
+        getServer().getPluginManager().registerEvents(
+                new PlayerListeners(this, garbageService, playerService, statusBarManager),
+                this
+        );
 
         // Commands
-        getCommand("garbage").setExecutor(new GarbageCommand(this));
+        getCommand("garbage").setExecutor(new com.menear.garbagecollector.commands.AdminCommands(this, garbageService, playerService));
 
         // Start background tasks
-        garbageManager.startSpawning();
-        playerManager.startWaterDrainTask();
+        garbageService.startSpawning();
+        playerService.startWaterDrainTask();
 
         getLogger().info("Garbage Collector enabled");
     }
@@ -35,7 +46,8 @@ public final class GarbageCollectorPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         // Save player data
-        playerManager.saveAll();
+        playerService.saveAll();
+        statusBarManager.removeAll();
         getLogger().info("Garbage Collector disabled");
     }
 
@@ -43,15 +55,17 @@ public final class GarbageCollectorPlugin extends JavaPlugin {
         return instance;
     }
 
-    public PlayerManager getPlayerManager() {
-        return playerManager;
+    public PlayerService getPlayerService() {
+        return playerService;
     }
 
-    public GarbageManager getGarbageManager() {
-        return garbageManager;
+    public GarbageService getGarbageService() {
+        return garbageService;
     }
 
     public ConfigManager getConfigManager() {
         return configManager;
     }
+
+    public StatusBarManager getStatusBarManager() { return statusBarManager; }
 }
