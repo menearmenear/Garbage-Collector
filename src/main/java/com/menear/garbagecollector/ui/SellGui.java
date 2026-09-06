@@ -2,6 +2,7 @@ package com.menear.garbagecollector.ui;
 
 import com.menear.garbagecollector.GarbageCollectorPlugin;
 import com.menear.garbagecollector.PlayerData;
+import com.menear.garbagecollector.Sfx;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -63,7 +64,7 @@ public class SellGui {
         inv.setItem(26, sellAll);
 
         p.openInventory(inv);
-        p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, 0.6f, 1.2f);
+        Sfx.play(plugin, p, "guiOpen", Sound.BLOCK_CHEST_OPEN, 0.6f, 1.2f);
     }
 
     private int computeTotal(PlayerData data) {
@@ -92,10 +93,11 @@ public class SellGui {
                 int count = data.totalGarbage();
                 data.clearGarbage();
                 p.sendMessage(ChatColor.GREEN + "Sold all garbage for $" + total + " (" + count + " items)");
-                p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.0f);
+                Sfx.play(plugin, p, "sell", Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.0f);
                 rollBonusDrop(p, data);
             } else {
                 p.sendMessage(ChatColor.RED + "You have no garbage to sell!");
+                Sfx.play(plugin, p, "shopFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.8f);
             }
             p.closeInventory();
             plugin.getScoreboardManager().updateForPlayer(p, data);
@@ -114,7 +116,7 @@ public class SellGui {
                 data.addTotalEarned(earn);
                 data.setGarbage(e.getKey(), 0);
                 p.sendMessage(ChatColor.GREEN + "Sold " + e.getValue() + " " + e.getKey() + " for $" + earn);
-                p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.0f);
+                Sfx.play(plugin, p, "sell", Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.0f);
                 rollBonusDrop(p, data);
                 p.closeInventory();
                 plugin.getScoreboardManager().updateForPlayer(p, data);
@@ -141,6 +143,7 @@ public class SellGui {
                 int amount = minmax[1] <= minmax[0] ? minmax[0] : minmax[0] + random.nextInt(minmax[1] - minmax[0] + 1);
                 p.getInventory().addItem(new ItemStack(mat, Math.max(1, amount)));
                 p.sendMessage(ChatColor.LIGHT_PURPLE + "Bonus loot! You found " + mat.name());
+                Sfx.play(plugin, p, "bonusLoot", Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);
                 return;
             }
         }

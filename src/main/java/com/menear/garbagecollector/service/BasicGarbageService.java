@@ -4,6 +4,7 @@ import com.menear.garbagecollector.ActiveGarbage;
 import com.menear.garbagecollector.CollectionResult;
 import com.menear.garbagecollector.GarbageCollectorPlugin;
 import com.menear.garbagecollector.PlayerData;
+import com.menear.garbagecollector.Sfx;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Color;
@@ -263,6 +264,7 @@ public class BasicGarbageService implements GarbageService {
         g.setEntities(null, mob, null);
         garbages.put(id, g);
         updateMobName(mob, g, tier, maxTiers);
+        Sfx.play(plugin, loc, "mobSpawn", Sound.ENTITY_ZOMBIE_AMBIENT, 0.5f, 1.0f);
         spawnEffect(loc, r, false);
     }
 
@@ -385,10 +387,12 @@ public class BasicGarbageService implements GarbageService {
         if (!hasTool(player)) {
             String name = plugin.getConfig().getString("tool.name", "&6Trash Grabber").replace("&", "\u00A7");
             player.sendActionBar(ChatColor.RED + "You need the " + name + "!");
+            Sfx.play(plugin, player, "collectFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.5f);
             return CollectionResult.fail("no tool");
         }
         if (data.getCollected() >= collectorBagCapacity(data)) {
             player.sendActionBar(ChatColor.RED + "Bag full! Sell your haul with /sell");
+            Sfx.play(plugin, player, "collectFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.5f);
             return CollectionResult.fail("bag full");
         }
 
@@ -429,6 +433,7 @@ public class BasicGarbageService implements GarbageService {
         player.sendActionBar(msg.toString());
         if (luckGained) {
             player.sendMessage(ChatColor.LIGHT_PURPLE + "Your Garbage Luck grew! +1 (now " + data.getGarbageLuck() + ")");
+            Sfx.play(plugin, player, "luckUp", Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.6f);
         }
 
         plugin.getStatusBarManager().updateForPlayer(player, data);
@@ -456,6 +461,7 @@ public class BasicGarbageService implements GarbageService {
         // bonus loot scaled by luck
         int luck = kdata.getGarbageLuck();
         double luckBonus = plugin.getConfig().getDouble("mob.luckDropChanceBonusPerPoint", 0.01);
+        boolean anyDrop = false;
         if (plugin.getConfig().isConfigurationSection("mob.drops")) {
             for (String key : plugin.getConfig().getConfigurationSection("mob.drops").getKeys(false)) {
                 String p = "mob.drops." + key;
@@ -465,14 +471,15 @@ public class BasicGarbageService implements GarbageService {
                     int[] minmax = parseAmount(plugin.getConfig().getString(p + ".amount", "1-1"));
                     int amount = minmax[1] <= minmax[0] ? minmax[0] : minmax[0] + random.nextInt(minmax[1] - minmax[0] + 1);
                     garbage.location.getWorld().dropItem(garbage.location.clone().add(0, 0.5, 0), new ItemStack(mat, Math.max(1, amount)));
+                    anyDrop = true;
                 }
             }
         }
 
         bigBurst(garbage.location, garbage.rarityName);
-        if (plugin.getConfig().getBoolean("effects.sounds", true)) {
-            garbage.location.getWorld().playSound(garbage.location, Sound.ENTITY_ZOMBIE_DEATH, 0.8f, 0.9f);
-        }
+        Sfx.play(plugin, garbage.location, "mobDeath", Sound.ENTITY_ZOMBIE_DEATH, 0.8f, 0.9f);
+        Sfx.play(plugin, killer, "mobDeath", Sound.ENTITY_ZOMBIE_DEATH, 0.8f, 0.9f);
+        if (anyDrop) Sfx.play(plugin, garbage.location, "mobLoot", Sound.ENTITY_ITEM_PICKUP, 0.4f, 1.3f);
         killer.sendActionBar(ChatColor.RED + "Trash monster slain - loot dropped!");
         plugin.getStatusBarManager().updateForPlayer(killer, kdata);
         plugin.getScoreboardManager().updateForPlayer(killer, kdata);
@@ -531,13 +538,13 @@ public class BasicGarbageService implements GarbageService {
     // Effects
     // -------------------------------------------------------------
     private void spawnEffect(Location loc, Rarity r, boolean mob) {
-        if (!plugin.getConfig().getBoolean("effects.particles", true) || loc == null || loc.getWorld() == null) return;
-        Color c = parseColor(r.colorHex);
-        int count = Math.max(4, r.weight > 20 ? 6 : 12);
-        loc.getWorld().spawnParticle(Particle.DUST, loc.clone().add(0, 0.7, 0), count, 0.3, 0.3, 0.3, new Particle.DustOptions(c, r.weight <= 20 ? 2.0f : 1.2f));
-        if (plugin.getConfig().getBoolean("effects.sounds", true)) {
-            loc.getWorld().playSound(loc, Sound.BLOCK_ENCHANTMENT_TABLE_USE, 0.4f, 1.3f);
+        if (loc == null || loc.getWorld() == null) return;
+        if (plugin.getConfig().getBoolean("effects.particles", true)) {
+            Color c = parseColor(r.colorHex);
+            int count = Math.max(4, r.weight > 20 ? 6 : 12);
+            loc.getWorld().spawnParticle(Particle.DUST, loc.clone().add(0, 0.7, 0), count, 0.3, 0.3, 0.3, new Particle.DustOptions(c, r.weight <= 20 ? 2.0f : 1.2f));
         }
+        Sfx.play(plugin, loc, "spawn", Sound.BLOCK_ENCHANTMENT_TABLE_USE, 0.4f, 1.3f);
     }
 
     private void collectEffect(Location loc, ActiveGarbage g) {
@@ -546,8 +553,10 @@ public class BasicGarbageService implements GarbageService {
             Color c = parseColor(g.colorHex);
             loc.getWorld().spawnParticle(Particle.DUST, loc.clone().add(0, 0.8, 0), 14, 0.3, 0.3, 0.3, new Particle.DustOptions(c, 1.5f));
         }
-        if (plugin.getConfig().getBoolean("effects.sounds", true)) {
-            loc.getWorld().playSound(loc, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.2f);
+        Sfx.play(plugin, loc, "collect", Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.2f);
+        // extra sparkle for non-common rarities
+        if (!"common".equalsIgnoreCase(g.rarityName)) {
+            Sfx.play(plugin, loc, "collectRare", Sound.BLOCK_NOTE_BLOCK_CHIME, 0.6f, 1.6f);
         }
     }
 

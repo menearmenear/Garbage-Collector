@@ -2,6 +2,7 @@ package com.menear.garbagecollector.ui;
 
 import com.menear.garbagecollector.GarbageCollectorPlugin;
 import com.menear.garbagecollector.PlayerData;
+import com.menear.garbagecollector.Sfx;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -43,7 +44,7 @@ public class CollectionGui {
         placeItems(inv, data, tab);
 
         p.openInventory(inv);
-        p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, 0.6f, 1.2f);
+        Sfx.play(plugin, p, "guiOpen", Sound.BLOCK_CHEST_OPEN, 0.6f, 1.2f);
     }
 
     private void fillBorder(Inventory inv, Material mat) {
@@ -183,10 +184,10 @@ public class CollectionGui {
         int slot = event.getSlot();
         String itemName = ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
         if (slot == 0 && itemName.contains("Garbage")) {
-            p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.4f);
+            Sfx.play(plugin, p, "guiClick", Sound.UI_BUTTON_CLICK, 0.5f, 1.4f);
             open(p, "garbage");
         } else if (slot == 8 && itemName.contains("Mobs")) {
-            p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.4f);
+            Sfx.play(plugin, p, "guiClick", Sound.UI_BUTTON_CLICK, 0.5f, 1.4f);
             open(p, "mobs");
         }
     }

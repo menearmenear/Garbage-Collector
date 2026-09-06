@@ -2,6 +2,7 @@ package com.menear.garbagecollector.ui;
 
 import com.menear.garbagecollector.GarbageCollectorPlugin;
 import com.menear.garbagecollector.PlayerData;
+import com.menear.garbagecollector.Sfx;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -35,7 +36,7 @@ public class ShopGui {
         inv.setItem(15, speedItem(data));
 
         p.openInventory(inv);
-        p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, 0.6f, 1.2f);
+        Sfx.play(plugin, p, "guiOpen", Sound.BLOCK_CHEST_OPEN, 0.6f, 1.2f);
     }
 
     private ItemStack tierItem(PlayerData data) {
@@ -131,12 +132,14 @@ public class ShopGui {
             if (cost >= 0 && data.spend(cost)) {
                 data.setCollectorTier(next);
                 p.sendMessage(ChatColor.GREEN + "Collector upgraded to Tier " + next + " for $" + cost);
-                p.playSound(p.getLocation(), Sound.BLOCK_ANVIL_USE, 0.7f, 1.0f);
+                Sfx.play(plugin, p, "shop", Sound.BLOCK_ANVIL_USE, 0.7f, 1.0f);
             } else if (cost < 0) {
                 data.setCollectorTier(next);
                 p.sendMessage(ChatColor.GREEN + "Collector upgraded to Tier " + next + "!");
+                Sfx.play(plugin, p, "shop", Sound.BLOCK_ANVIL_USE, 0.7f, 1.0f);
             } else {
                 p.sendMessage(ChatColor.RED + "Not enough money! You need $" + cost);
+                Sfx.play(plugin, p, "shopFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.8f);
             }
         } else if (clicked.getType() == Material.EXPERIENCE_BOTTLE) {
             int per = plugin.getConfig().getInt("luck.upgradeMaxPerPurchase", 5);
@@ -144,21 +147,24 @@ public class ShopGui {
             int max = plugin.getConfig().getInt("luck.maxLuck", 100);
             if (data.getGarbageLuck() >= max) {
                 p.sendMessage(ChatColor.RED + "Max luck reached!");
+                Sfx.play(plugin, p, "shopFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.8f);
                 return;
             }
             if (data.spend(cost)) {
                 int toAdd = Math.min(per, max - data.getGarbageLuck());
                 data.addGarbageLuck(toAdd);
                 p.sendMessage(ChatColor.LIGHT_PURPLE + "Bought +" + toAdd + " luck for $" + cost);
-                p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.0f);
+                Sfx.play(plugin, p, "shop", Sound.BLOCK_ANVIL_USE, 0.7f, 1.0f);
             } else {
                 p.sendMessage(ChatColor.RED + "Not enough money!");
+                Sfx.play(plugin, p, "shopFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.8f);
             }
         } else if (clicked.getType() == Material.SUGAR) {
             int lvl = data.getSpeedLevel();
             String nextPath = "shop.speed.levels." + (lvl + 1);
             if (!plugin.getConfig().isConfigurationSection(nextPath)) {
                 p.sendMessage(ChatColor.RED + "Max speed reached!");
+                Sfx.play(plugin, p, "shopFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.8f);
                 return;
             }
             int cost = plugin.getConfig().getInt(nextPath + ".cost", -1);
@@ -166,13 +172,14 @@ public class ShopGui {
                 data.setSpeedLevel(lvl + 1);
                 applySpeed(p, data);
                 p.sendMessage(ChatColor.AQUA + "Speed upgraded to lvl " + (lvl + 1) + " for $" + cost);
-                p.playSound(p.getLocation(), Sound.BLOCK_PISTON_EXTEND, 0.7f, 1.0f);
+                Sfx.play(plugin, p, "shop", Sound.BLOCK_ANVIL_USE, 0.7f, 1.0f);
             } else if (cost < 0) {
                 data.setSpeedLevel(lvl + 1);
                 applySpeed(p, data);
                 p.sendMessage(ChatColor.AQUA + "Speed upgraded to lvl " + (lvl + 1) + "!");
             } else {
                 p.sendMessage(ChatColor.RED + "Not enough money!");
+                Sfx.play(plugin, p, "shopFail", Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.8f);
             }
         }
 

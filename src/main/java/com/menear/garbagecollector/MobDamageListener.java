@@ -1,6 +1,7 @@
 package com.menear.garbagecollector;
 
 import com.menear.garbagecollector.service.GarbageService;
+import org.bukkit.Sound;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -23,5 +24,6 @@ public class MobDamageListener implements Listener {
         if (garbage == null || !garbage.isMob() || !(garbage.getVisualEntity() instanceof LivingEntity mob)) return;
         int maxTiers = Math.max(1, plugin.getConfig().getInt("mob.maxTier", 5));
         garbageService.updateMobName(mob, garbage, garbage.getMobTier(), maxTiers);
+        Sfx.play(plugin, event.getEntity().getLocation(), "mobHurt", Sound.ENTITY_ZOMBIE_HURT, 0.5f, 1.0f);
     }
 }
