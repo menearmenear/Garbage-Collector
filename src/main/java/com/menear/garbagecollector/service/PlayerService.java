@@ -8,5 +8,5 @@ public interface PlayerService {
     PlayerData getPlayerData(UUID uuid);
     void save(UUID uuid);
     void saveAll();
-    void startWaterDrainTask();
+    void reset(UUID uuid);
 }

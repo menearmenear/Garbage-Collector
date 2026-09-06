@@ -5,6 +5,13 @@ out/
 *.iml
 .gradle/
 
+# Local dev server (worlds, jars, logs, player data)
+/server
+
+# Build logs
+/build.log
+*.log
+
 # OS
 .DS_Store
 Thumbs.db

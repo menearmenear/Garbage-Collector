@@ -16,18 +16,12 @@ public class BasicPlayerService implements PlayerService {
 
     public BasicPlayerService(GarbageCollectorPlugin plugin) {
         this.plugin = plugin;
-        Bukkit.getOnlinePlayers().forEach(p -> load(p.getUniqueId()));
+        Bukkit.getOnlinePlayers().forEach(p -> getPlayerData(p.getUniqueId()));
     }
 
     @Override
     public PlayerData getPlayerData(UUID uuid) {
-        return players.computeIfAbsent(uuid, id -> load(id));
-    }
-
-    private PlayerData load(UUID uuid) {
-        PlayerData data = PlayerData.load(plugin, uuid);
-        players.put(uuid, data);
-        return data;
+        return players.computeIfAbsent(uuid, id -> PlayerData.load(plugin, id));
     }
 
     @Override
@@ -48,27 +42,10 @@ public class BasicPlayerService implements PlayerService {
     }
 
     @Override
-    public void startWaterDrainTask() {
-        int drainPerMinute = plugin.getConfig().getInt("water.drainPerMinute", 1);
-        long ticksPerDrain = 20L * 60 / Math.max(1, drainPerMinute);
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            for (UUID id : players.keySet()) {
-                PlayerData data = players.get(id);
-                if (data == null) continue;
-                data.decreaseWater(1);
-                Player p = Bukkit.getPlayer(id);
-                if (p != null) {
-                    // Update UI via plugin-managed StatusBarManager later (example usage)
-                    p.sendActionBar(data.getStatusBar());
-                    if (data.getWater() <= 0) {
-                        // apply slowness by adjusting walk speed or potion in future iterations
-                        p.setWalkSpeed(0.1f);
-                    } else {
-                        // reset to default speed
-                        p.setWalkSpeed(0.2f);
-                    }
-                }
-            }
-        }, 20L * 5, ticksPerDrain);
+    public void reset(UUID uuid) {
+        PlayerData data = players.remove(uuid);
+        if (data != null) data.delete(plugin);
+        PlayerData fresh = PlayerData.load(plugin, uuid);
+        players.put(uuid, fresh);
     }
 }

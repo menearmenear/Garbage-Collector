@@ -4,11 +4,11 @@ plugins {
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
+        languageVersion.set(JavaLanguageVersion.of(25))
     }
 }
 
-val paperVersion = "1.26.2-R0.1-SNAPSHOT"
+val paperVersion = "26.2.build.121-stable"
 
 repositories {
     mavenCentral()
@@ -22,7 +22,7 @@ dependencies {
 tasks {
     withType<JavaCompile> {
         options.encoding = "UTF-8"
-        options.release.set(21)
+        options.release.set(25)
     }
     withType<Jar> {
         archiveBaseName.set("Garbage-Collector")
